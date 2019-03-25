@@ -35,31 +35,28 @@ type ctx struct {
 
 var theCtx = ctx{}
 
-// IncrCounter is the main API - will initialize package, create counter, and add one to it, as needed.
+// Incr is the main API - will initialize package, create counter, and add one to it, as needed.
 // One line does it all.
-func IncrCounter(name string) {
+func Incr(name string) {
+	IncrDelta(name, 1)
+}
+
+// IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
+func IncrDelta(name string, i int64) {
 	if !theCtx.started {
 		startUpRoutine()
 	}
 	select {
-	case theCtx.c <- counterMsg{name, 1}:
+	case theCtx.c <- counterMsg{name, i}:
 		// good
 	default:
 		// bad but ok
 	}
 }
 
-// DecrCounter is used to decrement a counter made with IncrCounter
-func DecrCounter(name string) {
-	if !theCtx.started {
-		startUpRoutine()
-	}
-	select {
-	case theCtx.c <- counterMsg{name, -1}:
-		// good
-	default:
-		// bad but ok
-	}
+// Decr is used to decrement a counter made with Incr.
+func Decr(name string) {
+	IncrDelta(name, -1)
 }
 
 func startUpRoutine() {

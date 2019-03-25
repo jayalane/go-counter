@@ -10,8 +10,8 @@ import (
 
 func TestCounter(t *testing.T) {
 	SetLogInterval(1)
-	IncrCounter("num_of_things")
+	Incr("num_of_things")
 	time.Sleep(1100 * time.Millisecond)
-	DecrCounter("num_of_things")
+	Decr("num_of_things")
 	time.Sleep(1100 * time.Millisecond)
 }
