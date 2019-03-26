@@ -17,11 +17,13 @@ type counter struct {
 	maxSeen   time.Time
 	firstSeen time.Time
 	lastSeen  time.Time
+	prefix    string
 }
 
 type counterMsg struct {
-	name string
-	i    int64
+	name   string
+	prefix string
+	i      int64
 }
 
 type ctx struct {
@@ -50,8 +52,9 @@ func IncrDelta(name string, i int64) {
 	if !theCtx.started {
 		startUpRoutine()
 	}
+	prefix := getCallerFunctionName()
 	select {
-	case theCtx.c <- counterMsg{name, i}:
+	case theCtx.c <- counterMsg{name, prefix, i}:
 		// good
 	default:
 		// bad but ok
@@ -77,6 +80,7 @@ func startUpRoutine() {
 				return
 			case cm := <-theCtx.c:
 				str := cm.name
+				prefix := cm.prefix
 				i := cm.i
 				theCtx.countersLock.Lock()
 				c, ok := theCtx.counters[str]
@@ -85,6 +89,7 @@ func startUpRoutine() {
 				if !ok {
 					c = counter{}
 					c.firstSeen = n
+					c.prefix = prefix
 				}
 				c.lastSeen = n
 				c.data += i // bad name
@@ -121,7 +126,10 @@ func startUpRoutine() {
 			}
 			sort.Strings(m)
 			for k := range m {
-				log.Printf(theCtx.fmtString, m[k], theCtx.counters[m[k]].data, theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
+				log.Printf(theCtx.fmtString,
+					theCtx.counters[m[k]].prefix+"-"+m[k],
+					theCtx.counters[m[k]].data,
+					theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
 				newC := theCtx.counters[m[k]]
 				newC.oldData = newC.data
 				theCtx.counters[m[k]] = newC
