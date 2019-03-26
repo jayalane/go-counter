@@ -6,10 +6,12 @@ package counters
 import (
 	"log"
 	"sort"
+	"sync"
 	"time"
 )
 
 type counter struct {
+	oldData   int64
 	data      int64
 	maxVal    int64
 	maxSeen   time.Time
@@ -24,6 +26,7 @@ type counterMsg struct {
 
 type ctx struct {
 	counters     map[string]counter
+	countersLock sync.RWMutex
 	reset        time.Time
 	startTime    time.Time
 	started      bool
@@ -66,6 +69,7 @@ func startUpRoutine() {
 	theCtx.counters = make(map[string]counter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
+	theCtx.countersLock = sync.RWMutex{}
 	go func() { //reader
 		for {
 			select {
@@ -74,7 +78,9 @@ func startUpRoutine() {
 			case cm := <-theCtx.c:
 				str := cm.name
 				i := cm.i
+				theCtx.countersLock.Lock()
 				c, ok := theCtx.counters[str]
+				theCtx.countersLock.Unlock()
 				n := time.Now()
 				if !ok {
 					c = counter{}
@@ -86,7 +92,10 @@ func startUpRoutine() {
 					c.maxVal = c.data
 					c.maxSeen = n // same time.Now for all three
 				}
+				theCtx.countersLock.Lock()
 				theCtx.counters[str] = c
+				theCtx.countersLock.Unlock()
+
 			default:
 				// oh well
 			}
@@ -94,15 +103,16 @@ func startUpRoutine() {
 	}()
 
 	go func() { // per minute checker
-		theCtx.fmtString = "%-40s  %20d\n"
-		theCtx.fmtStringStr = "%-40s  %20s\n"
+		theCtx.fmtString = "%-40s  %20d %20d\n"
+		theCtx.fmtStringStr = "%-40s  %20s %20s\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
 		for {
 			n := time.Now()
-			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now())
-			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime))
+			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
+			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
+			theCtx.countersLock.Lock()
 			m := make([]string, len(theCtx.counters))
 			i := 0
 			for k := range theCtx.counters {
@@ -111,8 +121,12 @@ func startUpRoutine() {
 			}
 			sort.Strings(m)
 			for k := range m {
-				log.Printf(theCtx.fmtString, m[k], theCtx.counters[m[k]].data)
+				log.Printf(theCtx.fmtString, m[k], theCtx.counters[m[k]].data, theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
+				newC := theCtx.counters[m[k]]
+				newC.oldData = newC.data
+				theCtx.counters[m[k]] = newC
 			}
+			theCtx.countersLock.Unlock()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 		}
 	}()
