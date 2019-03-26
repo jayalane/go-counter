@@ -5,6 +5,7 @@ package counters
 
 import (
 	"log"
+	"sort"
 	"time"
 )
 
@@ -102,8 +103,15 @@ func startUpRoutine() {
 			n := time.Now()
 			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now())
 			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime))
-			for k, v := range theCtx.counters {
-				log.Printf(theCtx.fmtString, k, v.data)
+			m := make([]string, len(theCtx.counters))
+			i := 0
+			for k := range theCtx.counters {
+				m[i] = k
+				i++
+			}
+			sort.Strings(m)
+			for k := range m {
+				log.Printf(theCtx.fmtString, m[k], theCtx.counters[m[k]].data)
 			}
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 		}
