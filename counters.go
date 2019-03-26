@@ -127,7 +127,7 @@ func startUpRoutine() {
 			sort.Strings(m)
 			for k := range m {
 				log.Printf(theCtx.fmtString,
-					theCtx.counters[m[k]].prefix+"-"+m[k],
+					m[k] + "/" + theCtx.counters[m[k]].prefix,
 					theCtx.counters[m[k]].data,
 					theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
 				newC := theCtx.counters[m[k]]
