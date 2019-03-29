@@ -10,9 +10,6 @@ import (
 	"time"
 )
 
-// MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones
-type MetaCounterF func(int64, int64) float64
-
 type metaCounter struct {
 	name   string
 	c1     string
@@ -54,63 +51,6 @@ type ctx struct {
 }
 
 var theCtx = ctx{}
-
-// Incr is the main API - will initialize package, create counter, and add one to it, as needed.
-// One line does it all.
-func Incr(name string) {
-	IncrDelta(name, 1)
-}
-
-// AddMetaCounter adds in a CB to calculate a new number based on other counters
-func AddMetaCounter(name string,
-	c1 string,
-	c2 string,
-	f MetaCounterF) {
-	prefix := getCallerFunctionName()
-	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, 0.0, f}
-	log.Println("Meta counters", theCtx.metaCtrs)
-}
-
-// IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
-func IncrDelta(name string, i int64) {
-	prefix := getCallerFunctionName()
-	select {
-	case theCtx.c <- counterMsg{name, prefix, i}:
-		// good
-	default:
-		// bad but ok
-	}
-}
-
-// Decr is used to decrement a counter made with Incr.
-func Decr(name string) {
-	IncrDelta(name, -1)
-}
-
-// RatioTotal can be supplied as a MetaCounter function to calculate e.g. availability between good and bad
-func RatioTotal(a int64, b int64) float64 {
-	return float64(a) / (float64(a) + float64(b))
-}
-
-func logMetaCounter(mc metaCounter, cs map[string]counter) metaCounter {
-	newMc := mc
-	var v float64
-	c1, ok := cs[mc.c1]
-	if !ok {
-		return mc
-	}
-	c2, ok := cs[mc.c2]
-	if !ok {
-		return mc
-	}
-	v = mc.f(c1.data, c2.data)
-	log.Printf(theCtx.fmtStringF64,
-		mc.name+"/"+mc.prefix,
-		v,
-		v-mc.oldV)
-	newMc.oldV = v
-	return newMc
-}
 
 // InitCounters should be called at least once to start the go routines etc.
 func InitCounters() {
@@ -199,6 +139,66 @@ func InitCounters() {
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 		}
 	}()
+}
+
+// Incr is the main API - will create counter, and add one to it, as needed.
+// One line does it all.
+func Incr(name string) {
+	IncrDelta(name, 1)
+}
+
+// AddMetaCounter adds in a CB to calculate a new number based on other counters
+func AddMetaCounter(name string,
+	c1 string,
+	c2 string,
+	f MetaCounterF) {
+	prefix := getCallerFunctionName()
+	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, 0.0, f}
+	log.Println("Meta counters", theCtx.metaCtrs)
+}
+
+// MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones
+type MetaCounterF func(int64, int64) float64
+
+// IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
+func IncrDelta(name string, i int64) {
+	prefix := getCallerFunctionName()
+	select {
+	case theCtx.c <- counterMsg{name, prefix, i}:
+		// good
+	default:
+		// bad but ok
+	}
+}
+
+// Decr is used to decrement a counter made with Incr.
+func Decr(name string) {
+	IncrDelta(name, -1)
+}
+
+// RatioTotal can be supplied as a MetaCounter function to calculate e.g. availability between good and bad
+func RatioTotal(a int64, b int64) float64 {
+	return float64(a) / (float64(a) + float64(b))
+}
+
+func logMetaCounter(mc metaCounter, cs map[string]counter) metaCounter {
+	newMc := mc
+	var v float64
+	c1, ok := cs[mc.c1]
+	if !ok {
+		return mc
+	}
+	c2, ok := cs[mc.c2]
+	if !ok {
+		return mc
+	}
+	v = mc.f(c1.data, c2.data)
+	log.Printf(theCtx.fmtStringF64,
+		mc.name+"/"+mc.prefix,
+		v,
+		v-mc.oldV)
+	newMc.oldV = v
+	return newMc
 }
 
 // SetLogInterval sets the number of seconds to sleep between logs of the counters
