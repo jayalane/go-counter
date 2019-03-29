@@ -10,6 +10,18 @@ import (
 	"time"
 )
 
+// MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones
+type MetaCounterF func(int64, int64) float64
+
+type metaCounter struct {
+	name   string
+	c1     string
+	c2     string
+	prefix string
+	oldV   float64
+	f      MetaCounterF
+}
+
 type counter struct {
 	oldData   int64
 	data      int64
@@ -28,6 +40,7 @@ type counterMsg struct {
 
 type ctx struct {
 	counters     map[string]counter
+	metaCtrs     map[string]metaCounter
 	countersLock sync.RWMutex
 	reset        time.Time
 	startTime    time.Time
@@ -36,6 +49,7 @@ type ctx struct {
 	c            chan counterMsg
 	fmtString    string
 	fmtStringStr string
+	fmtStringF64 string
 	timeSleep    float64
 }
 
@@ -47,11 +61,18 @@ func Incr(name string) {
 	IncrDelta(name, 1)
 }
 
+// AddMetaCounter adds in a CB to calculate a new number based on other counters
+func AddMetaCounter(name string,
+	c1 string,
+	c2 string,
+	f MetaCounterF) {
+	prefix := getCallerFunctionName()
+	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, 0.0, f}
+	log.Println("Meta counters", theCtx.metaCtrs)
+}
+
 // IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
 func IncrDelta(name string, i int64) {
-	if !theCtx.started {
-		startUpRoutine()
-	}
 	prefix := getCallerFunctionName()
 	select {
 	case theCtx.c <- counterMsg{name, prefix, i}:
@@ -66,10 +87,40 @@ func Decr(name string) {
 	IncrDelta(name, -1)
 }
 
-func startUpRoutine() {
+// RatioTotal can be supplied as a MetaCounter function to calculate e.g. availability between good and bad
+func RatioTotal(a int64, b int64) float64 {
+	return float64(a) / (float64(a) + float64(b))
+}
+
+func logMetaCounter(mc metaCounter, cs map[string]counter) metaCounter {
+	newMc := mc
+	var v float64
+	c1, ok := cs[mc.c1]
+	if !ok {
+		return mc
+	}
+	c2, ok := cs[mc.c2]
+	if !ok {
+		return mc
+	}
+	v = mc.f(c1.data, c2.data)
+	log.Printf(theCtx.fmtStringF64,
+		mc.name+"/"+mc.prefix,
+		v,
+		v-mc.oldV)
+	newMc.oldV = v
+	return newMc
+}
+
+// InitCounters should be called at least once to start the go routines etc.
+func InitCounters() {
+	if theCtx.started {
+		return
+	}
 	theCtx.c = make(chan counterMsg, 10000)
 	theCtx.finished = make(chan bool, 1)
 	theCtx.counters = make(map[string]counter)
+	theCtx.metaCtrs = make(map[string]metaCounter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
 	theCtx.countersLock = sync.RWMutex{}
@@ -110,6 +161,7 @@ func startUpRoutine() {
 	go func() { // per minute checker
 		theCtx.fmtString = "%-40s  %20d %20d\n"
 		theCtx.fmtStringStr = "%-40s  %20s %20s\n"
+		theCtx.fmtStringF64 = "%-40s  %20f %20f\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
@@ -118,21 +170,30 @@ func startUpRoutine() {
 			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 			theCtx.countersLock.Lock()
-			m := make([]string, len(theCtx.counters))
+			m := make([]string, len(theCtx.counters)+len(theCtx.metaCtrs))
 			i := 0
 			for k := range theCtx.counters {
 				m[i] = k
 				i++
 			}
+			for k := range theCtx.metaCtrs {
+				m[i] = theCtx.metaCtrs[k].name
+				i++
+			}
 			sort.Strings(m)
 			for k := range m {
-				log.Printf(theCtx.fmtString,
-					m[k] + "/" + theCtx.counters[m[k]].prefix,
-					theCtx.counters[m[k]].data,
-					theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
-				newC := theCtx.counters[m[k]]
-				newC.oldData = newC.data
-				theCtx.counters[m[k]] = newC
+				_, ok := theCtx.counters[m[k]]
+				if ok {
+					log.Printf(theCtx.fmtString,
+						m[k]+"/"+theCtx.counters[m[k]].prefix,
+						theCtx.counters[m[k]].data,
+						theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
+					newC := theCtx.counters[m[k]]
+					newC.oldData = newC.data
+					theCtx.counters[m[k]] = newC
+				} else {
+					theCtx.metaCtrs[m[k]] = logMetaCounter(theCtx.metaCtrs[m[k]], theCtx.counters)
+				}
 			}
 			theCtx.countersLock.Unlock()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))

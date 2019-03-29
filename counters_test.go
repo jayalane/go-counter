@@ -9,10 +9,16 @@ import (
 )
 
 func TestCounter(t *testing.T) {
+
+	InitCounters()
 	SetLogInterval(1)
+	AddMetaCounter("availability", "good", "bad", RatioTotal)
 	Incr("num_of_things")
 	Incr("a_num_of_things")
+	IncrDelta("good", 97)
+	IncrDelta("bad", 3)
 	time.Sleep(1100 * time.Millisecond)
 	Decr("num_of_things")
 	time.Sleep(1100 * time.Millisecond)
+
 }
