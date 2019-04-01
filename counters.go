@@ -106,6 +106,7 @@ func InitCounters() {
 		}
 		for {
 			n := time.Now()
+			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 			theCtx.countersLock.Lock()
@@ -135,7 +136,6 @@ func InitCounters() {
 				theCtx.counters[ctrNames[k]] = newC // this way
 			}
 			theCtx.countersLock.Unlock()
-			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 		}
 	}()
 }
