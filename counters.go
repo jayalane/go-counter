@@ -111,7 +111,7 @@ func InitCounters() {
 			theCtx.countersLock.Lock()
 			i := 0
 			// do meta counters first before oldData is updated
-			mctrNames := make([]string, len(theCtx.counters))
+			mctrNames := make([]string, len(theCtx.metaCtrs))
 			for k := range theCtx.metaCtrs { // cool scope is only in loop
 				mctrNames[i] = theCtx.metaCtrs[k].name
 				i++
@@ -153,7 +153,6 @@ func AddMetaCounter(name string,
 	f MetaCounterF) {
 	prefix := getCallerFunctionName()
 	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, f}
-	log.Println("Meta counters", theCtx.metaCtrs)
 }
 
 // MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones
@@ -190,11 +189,6 @@ func logMetaCounter(mc metaCounter, cs map[string]counter) {
 		return
 	}
 	vTotal := mc.f(c1.data, c2.data)
-	log.Printf("c1, c1 old, c2, c2 old %d %d %d %d\n",
-		c1.data,
-		c1.oldData,
-		c2.data,
-		c2.oldData)
 	vDelta := mc.f(c1.data-c1.oldData, c2.data-c2.oldData)
 
 	log.Printf(theCtx.fmtStringF64,
