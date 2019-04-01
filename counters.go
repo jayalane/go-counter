@@ -15,7 +15,6 @@ type metaCounter struct {
 	c1     string
 	c2     string
 	prefix string
-	oldV   float64
 	f      MetaCounterF
 }
 
@@ -110,30 +109,30 @@ func InitCounters() {
 			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 			theCtx.countersLock.Lock()
-			m := make([]string, len(theCtx.counters)+len(theCtx.metaCtrs))
 			i := 0
+			// do meta counters first before oldData is updated
+			mctrNames := make([]string, len(theCtx.counters))
+			for k := range theCtx.metaCtrs { // cool scope is only in loop
+				mctrNames[i] = theCtx.metaCtrs[k].name
+				i++
+			}
+			log.Printf(theCtx.fmtStringStr, "---M-E-T-A- -C-O-U-N-T----", time.Now(), "")
+			sort.Strings(mctrNames)
+			for k := range mctrNames {
+				logMetaCounter(theCtx.metaCtrs[mctrNames[k]], theCtx.counters)
+			}
+			ctrNames := make([]string, len(theCtx.counters))
+			i = 0
 			for k := range theCtx.counters {
-				m[i] = k
+				ctrNames[i] = k
 				i++
 			}
-			for k := range theCtx.metaCtrs {
-				m[i] = theCtx.metaCtrs[k].name
-				i++
-			}
-			sort.Strings(m)
-			for k := range m {
-				_, ok := theCtx.counters[m[k]]
-				if ok {
-					log.Printf(theCtx.fmtString,
-						m[k]+"/"+theCtx.counters[m[k]].prefix,
-						theCtx.counters[m[k]].data,
-						theCtx.counters[m[k]].data-theCtx.counters[m[k]].oldData)
-					newC := theCtx.counters[m[k]]
-					newC.oldData = newC.data
-					theCtx.counters[m[k]] = newC
-				} else {
-					theCtx.metaCtrs[m[k]] = logMetaCounter(theCtx.metaCtrs[m[k]], theCtx.counters)
-				}
+			sort.Strings(ctrNames)
+			for k := range ctrNames {
+				logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
+				newC := theCtx.counters[ctrNames[k]]
+				newC.oldData = newC.data            // have to update old data
+				theCtx.counters[ctrNames[k]] = newC // this way
 			}
 			theCtx.countersLock.Unlock()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
@@ -153,7 +152,7 @@ func AddMetaCounter(name string,
 	c2 string,
 	f MetaCounterF) {
 	prefix := getCallerFunctionName()
-	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, 0.0, f}
+	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, f}
 	log.Println("Meta counters", theCtx.metaCtrs)
 }
 
@@ -181,24 +180,34 @@ func RatioTotal(a int64, b int64) float64 {
 	return float64(a) / (float64(a) + float64(b))
 }
 
-func logMetaCounter(mc metaCounter, cs map[string]counter) metaCounter {
-	newMc := mc
-	var v float64
+func logMetaCounter(mc metaCounter, cs map[string]counter) {
 	c1, ok := cs[mc.c1]
 	if !ok {
-		return mc
+		return
 	}
 	c2, ok := cs[mc.c2]
 	if !ok {
-		return mc
+		return
 	}
-	v = mc.f(c1.data, c2.data)
+	vTotal := mc.f(c1.data, c2.data)
+	log.Printf("c1, c1 old, c2, c2 old %d %d %d %d\n",
+		c1.data,
+		c1.oldData,
+		c2.data,
+		c2.oldData)
+	vDelta := mc.f(c1.data-c1.oldData, c2.data-c2.oldData)
+
 	log.Printf(theCtx.fmtStringF64,
 		mc.name+"/"+mc.prefix,
-		v,
-		v-mc.oldV)
-	newMc.oldV = v
-	return newMc
+		vTotal,
+		vDelta)
+}
+
+func logCounter(name string, mc counter) {
+	log.Printf(theCtx.fmtString,
+		name+"/"+mc.prefix,
+		mc.data,
+		mc.data-mc.oldData)
 }
 
 // SetLogInterval sets the number of seconds to sleep between logs of the counters
