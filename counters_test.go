@@ -1,6 +1,7 @@
 // -*- tab-width: 2 -*-
 
 // Package counters enables 1 line creation of stats to track your program flow; you get summaries every minute
+// implemented using channels now but switching to sync based on these tests maybe; will keep both implementations
 package counters
 
 import (
@@ -8,16 +9,41 @@ import (
 	"time"
 )
 
+func BenchmarkCounter(b *testing.B) {
+	InitCounters()
+	SetLogInterval(1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		Incr("num_of_things")
+	}
+}
+
+var iii int64
+
+func BenchmarkSyncIncr(b *testing.B) {
+	InitCounters()
+	SetLogInterval(1)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		IncrSync("num_of_things")
+	}
+}
+
 func TestCounter(t *testing.T) {
 
 	InitCounters()
 	SetLogInterval(1)
 	AddMetaCounter("availability", "good", "bad", RatioTotal)
-	Incr("num_of_things")
-	Incr("a_num_of_things")
+	for i := 0; i < 1000; i++ {
+		go func() {
+			Incr("num_of_things")
+			Incr("a_num_of_things")
+		}()
+	}
+	time.Sleep(1100 * time.Millisecond)
 	IncrDelta("good", 97)
 	IncrDelta("bad", 3)
-	time.Sleep(1100 * time.Millisecond)
 	Decr("num_of_things")
 	time.Sleep(1100 * time.Millisecond)
 

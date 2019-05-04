@@ -7,6 +7,7 @@ import (
 	"log"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -50,9 +51,12 @@ type ctx struct {
 }
 
 var theCtx = ctx{}
+var theCtxLock = sync.RWMutex{}
 
 // InitCounters should be called at least once to start the go routines etc.
 func InitCounters() {
+	theCtxLock.Lock()
+	defer theCtxLock.Unlock()
 	if theCtx.started {
 		return
 	}
@@ -98,12 +102,14 @@ func InitCounters() {
 	}()
 
 	go func() { // per minute checker
+		theCtxLock.Lock()
 		theCtx.fmtString = "%-40s  %20d %20d\n"
 		theCtx.fmtStringStr = "%-40s  %20s %20s\n"
 		theCtx.fmtStringF64 = "%-40s  %20f %20f\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
+		theCtxLock.Unlock()
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
@@ -146,13 +152,21 @@ func Incr(name string) {
 	IncrDelta(name, 1)
 }
 
+// IncrSync is the faster API - will create counter, and add one to it, as needed.
+// One line does it all.
+func IncrSync(name string) {
+	IncrDelta(name, 1)
+}
+
 // AddMetaCounter adds in a CB to calculate a new number based on other counters
 func AddMetaCounter(name string,
 	c1 string,
 	c2 string,
 	f MetaCounterF) {
 	prefix := getCallerFunctionName()
+	theCtxLock.Lock()
 	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, f}
+	theCtxLock.Unlock()
 }
 
 // MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones
@@ -167,6 +181,33 @@ func IncrDelta(name string, i int64) {
 	default:
 		// bad but ok
 	}
+}
+
+// IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
+func IncrDeltaSync(name string, i int64) {
+	prefix := getCallerFunctionName()
+	theCtx.countersLock.Lock()
+	c, ok := theCtx.counters[name]
+	theCtx.countersLock.Unlock()
+	n := time.Now()
+	if !ok {
+		c = counter{}
+		c.firstSeen = n
+		c.prefix = prefix
+	}
+	atomic.AddInt64(&c.data, i)
+	maxSeenSet := false
+	if atomic.LoadInt64(&c.data) > atomic.LoadInt64(&c.maxVal) {
+		atomic.StoreInt64(&c.maxVal, c.data)
+		maxSeenSet = true
+	}
+	theCtx.countersLock.Lock()
+	c.lastSeen = n
+	if maxSeenSet {
+		c.maxSeen = n
+	}
+	theCtx.counters[name] = c
+	theCtx.countersLock.Unlock()
 }
 
 // Decr is used to decrement a counter made with Incr.
@@ -206,10 +247,14 @@ func logCounter(name string, mc counter) {
 
 // SetLogInterval sets the number of seconds to sleep between logs of the counters
 func SetLogInterval(i float64) {
+	theCtxLock.Lock()
 	theCtx.timeSleep = i
+	theCtxLock.Unlock()
 }
 
 // SetFmtString sets the format string to log the counters with.  It must have a %s and a %d
 func SetFmtString(fs string) {
+	theCtxLock.Lock()
 	theCtx.fmtString = fs // should validate
+	theCtxLock.Unlock()
 }
