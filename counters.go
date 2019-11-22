@@ -53,6 +53,40 @@ type ctx struct {
 var theCtx = ctx{}
 var theCtxLock = sync.RWMutex{}
 
+// LogCounters prints out the counters.  It is called internally
+// each minute but can be called externally e.g. at process end.
+func LogCounters() {
+	log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
+	log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
+	theCtx.countersLock.Lock()
+	i := 0
+	// do meta counters first before oldData is updated
+	mctrNames := make([]string, len(theCtx.metaCtrs))
+	for k := range theCtx.metaCtrs { // cool scope is only in loop
+		mctrNames[i] = theCtx.metaCtrs[k].name
+		i++
+	}
+	log.Printf(theCtx.fmtStringStr, "---M-E-T-A- -C-O-U-N-T----", time.Now(), "")
+	sort.Strings(mctrNames)
+	for k := range mctrNames {
+		logMetaCounter(theCtx.metaCtrs[mctrNames[k]], theCtx.counters)
+	}
+	ctrNames := make([]string, len(theCtx.counters))
+	i = 0
+	for k := range theCtx.counters {
+		ctrNames[i] = k
+		i++
+	}
+	sort.Strings(ctrNames)
+	for k := range ctrNames {
+		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
+		newC := theCtx.counters[ctrNames[k]]
+		newC.oldData = newC.data            // have to update old data
+		theCtx.counters[ctrNames[k]] = newC // this way
+	}
+	theCtx.countersLock.Unlock()
+}
+
 // InitCounters should be called at least once to start the go routines etc.
 func InitCounters() {
 	theCtxLock.Lock()
@@ -113,35 +147,7 @@ func InitCounters() {
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
-			log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
-			log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
-			theCtx.countersLock.Lock()
-			i := 0
-			// do meta counters first before oldData is updated
-			mctrNames := make([]string, len(theCtx.metaCtrs))
-			for k := range theCtx.metaCtrs { // cool scope is only in loop
-				mctrNames[i] = theCtx.metaCtrs[k].name
-				i++
-			}
-			log.Printf(theCtx.fmtStringStr, "---M-E-T-A- -C-O-U-N-T----", time.Now(), "")
-			sort.Strings(mctrNames)
-			for k := range mctrNames {
-				logMetaCounter(theCtx.metaCtrs[mctrNames[k]], theCtx.counters)
-			}
-			ctrNames := make([]string, len(theCtx.counters))
-			i = 0
-			for k := range theCtx.counters {
-				ctrNames[i] = k
-				i++
-			}
-			sort.Strings(ctrNames)
-			for k := range ctrNames {
-				logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
-				newC := theCtx.counters[ctrNames[k]]
-				newC.oldData = newC.data            // have to update old data
-				theCtx.counters[ctrNames[k]] = newC // this way
-			}
-			theCtx.countersLock.Unlock()
+			LogCounters()
 		}
 	}()
 }
@@ -181,6 +187,21 @@ func IncrDelta(name string, i int64) {
 	default:
 		// bad but ok
 	}
+}
+
+// IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
+func ReadSync(name string) int64 {
+	prefix := getCallerFunctionName()
+	theCtx.countersLock.Lock()
+	c, ok := theCtx.counters[name]
+	theCtx.countersLock.Unlock()
+	if !ok {
+		return 0
+	}
+	if prefix != c.prefix {
+		return 0
+	}
+	return c.data
 }
 
 // IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
