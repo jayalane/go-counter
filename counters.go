@@ -4,6 +4,7 @@
 package counters
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"sync"
@@ -191,16 +192,14 @@ func IncrDelta(name string, i int64) {
 
 // IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
 func ReadSync(name string) int64 {
-	prefix := getCallerFunctionName()
 	theCtx.countersLock.Lock()
 	c, ok := theCtx.counters[name]
 	theCtx.countersLock.Unlock()
 	if !ok {
+		fmt.Println("Can't find", name)
 		return 0
 	}
-	if prefix != c.prefix {
-		return 0
-	}
+	// skip the prefix check - name is unique anyways.
 	return c.data
 }
 
