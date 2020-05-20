@@ -138,9 +138,9 @@ func InitCounters() {
 
 	go func() { // per minute checker
 		theCtxLock.Lock()
-		theCtx.fmtString = "%-40s  %20d %20d\n"
-		theCtx.fmtStringStr = "%-40s  %20s %20s\n"
-		theCtx.fmtStringF64 = "%-40s  %20f %20f\n"
+		theCtx.fmtString = "%-85s  %20d %20d\n"
+		theCtx.fmtStringStr = "%-85s  %20s %20s\n"
+		theCtx.fmtStringF64 = "%-85s  %20f %20f\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
