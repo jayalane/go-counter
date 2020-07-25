@@ -138,9 +138,9 @@ func InitCounters() {
 
 	go func() { // per minute checker
 		theCtxLock.Lock()
-		theCtx.fmtString = "%-85s  %20d %20d\n"
-		theCtx.fmtStringStr = "%-85s  %20s %20s\n"
-		theCtx.fmtStringF64 = "%-85s  %20f %20f\n"
+		theCtx.fmtString = "%-90s  %20d %20d\n"
+		theCtx.fmtStringStr = "%-90s  %20s %20s\n"
+		theCtx.fmtStringF64 = "%-90s  %20f %20f\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
@@ -190,7 +190,7 @@ func IncrDelta(name string, i int64) {
 	}
 }
 
-// IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
+// ReadSync takes a stat name and returns its value
 func ReadSync(name string) int64 {
 	theCtx.countersLock.Lock()
 	c, ok := theCtx.counters[name]
