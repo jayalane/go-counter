@@ -15,8 +15,8 @@ import (
 // MetricReport is the minutes change in
 // the named named
 type MetricReport struct {
-	name  string
-	delta int64
+	Name  string
+	Delta int64
 }
 
 // MetricReporter is a function callback that can be registered
@@ -95,8 +95,8 @@ func LogCounters() {
 	sort.Strings(ctrNames)
 	for k := range ctrNames {
 		if theCtx.logCb != nil {
-			cbData[k].name = ctrNames[k]
-			cbData[k].delta = theCtx.counters[ctrNames[k]].data - theCtx.counters[ctrNames[k]].oldData
+			cbData[k].Name = ctrNames[k]
+			cbData[k].Delta = theCtx.counters[ctrNames[k]].data - theCtx.counters[ctrNames[k]].oldData
 		}
 		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
 		newC := theCtx.counters[ctrNames[k]]

@@ -16,7 +16,7 @@ func metricReporterCB(metrics []MetricReport) {
 	cbRan = true
 	for x := range metrics {
 		m := metrics[x]
-		fmt.Println("CB: ", m.name, m.delta)
+		fmt.Println("CB: ", m.Name, m.Delta)
 	}
 }
 
