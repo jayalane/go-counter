@@ -5,9 +5,20 @@
 package counters
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
+
+var cbRan = false
+
+func metricReporterCB(metrics []MetricReport) {
+	cbRan = true
+	for x := range metrics {
+		m := metrics[x]
+		fmt.Println("CB: ", m.name, m.delta)
+	}
+}
 
 func BenchmarkCounter(b *testing.B) {
 	InitCounters()
@@ -34,6 +45,7 @@ func TestCounter(t *testing.T) {
 
 	InitCounters()
 	SetLogInterval(1)
+	SetMetricReporter(metricReporterCB)
 	AddMetaCounter("availability", "good", "bad", RatioTotal)
 	for i := 0; i < 1000; i++ {
 		go func() {
@@ -45,6 +57,10 @@ func TestCounter(t *testing.T) {
 	IncrDelta("good", 97)
 	IncrDelta("bad", 3)
 	Decr("num_of_things")
+	if !cbRan {
+		fmt.Println("Callback did not run")
+		t.Fail()
+	}
 	time.Sleep(1100 * time.Millisecond)
 
 }

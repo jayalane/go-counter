@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+// MetricReport is the minutes change in
+// the named named
+type MetricReport struct {
+	name  string
+	delta int64
+}
+
+// MetricReporter is a function callback that can be registered
+// to dump metrics once a minute to some other system
+type MetricReporter func(metrics []MetricReport) // callback used below in SetMetricReporter
+
 type metaCounter struct {
 	name   string
 	c1     string
@@ -39,6 +50,7 @@ type counterMsg struct {
 type ctx struct {
 	counters     map[string]counter
 	metaCtrs     map[string]metaCounter
+	logCb        MetricReporter
 	countersLock sync.RWMutex
 	reset        time.Time
 	startTime    time.Time
@@ -57,6 +69,7 @@ var theCtxLock = sync.RWMutex{}
 // LogCounters prints out the counters.  It is called internally
 // each minute but can be called externally e.g. at process end.
 func LogCounters() {
+
 	log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 	log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 	theCtx.countersLock.Lock()
@@ -73,6 +86,7 @@ func LogCounters() {
 		logMetaCounter(theCtx.metaCtrs[mctrNames[k]], theCtx.counters)
 	}
 	ctrNames := make([]string, len(theCtx.counters))
+	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
 	i = 0
 	for k := range theCtx.counters {
 		ctrNames[i] = k
@@ -80,12 +94,19 @@ func LogCounters() {
 	}
 	sort.Strings(ctrNames)
 	for k := range ctrNames {
+		if theCtx.logCb != nil {
+			cbData[k].name = ctrNames[k]
+			cbData[k].delta = theCtx.counters[ctrNames[k]].data - theCtx.counters[ctrNames[k]].oldData
+		}
 		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
 		newC := theCtx.counters[ctrNames[k]]
 		newC.oldData = newC.data            // have to update old data
 		theCtx.counters[ctrNames[k]] = newC // this way
 	}
 	theCtx.countersLock.Unlock()
+	if theCtx.logCb != nil {
+		theCtx.logCb(cbData)
+	}
 }
 
 // InitCounters should be called at least once to start the go routines etc.
@@ -263,6 +284,15 @@ func logCounter(name string, mc counter) {
 		name+"/"+mc.prefix,
 		mc.data,
 		mc.data-mc.oldData)
+}
+
+// SetMetricReporter specifies a function to be called once per
+// LogInterval with the names of the current metrics and the last
+// minute delta
+func SetMetricReporter(fn MetricReporter) {
+	theCtxLock.Lock()
+	theCtx.logCb = fn
+	theCtxLock.Unlock()
 }
 
 // SetLogInterval sets the number of seconds to sleep between logs of the counters
