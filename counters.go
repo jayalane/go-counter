@@ -129,9 +129,7 @@ func InitCounters() {
 				theCtx.countersLock.Lock()
 				theCtx.counters[str] = c
 				theCtx.countersLock.Unlock()
-
-			default:
-				// oh well
+				// removed default because this should block
 			}
 		}
 	}()
