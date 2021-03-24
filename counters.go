@@ -50,6 +50,7 @@ type counterMsg struct {
 type ctx struct {
 	counters     map[string]counter
 	metaCtrs     map[string]metaCounter
+	maxLen       int // length of longest metric
 	logCb        MetricReporter
 	countersLock sync.RWMutex
 	reset        time.Time
@@ -88,10 +89,15 @@ func LogCounters() {
 	ctrNames := make([]string, len(theCtx.counters))
 	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
 	i = 0
+	maxLen := 0
 	for k := range theCtx.counters {
+		if len(k) > maxLen {
+			maxLen = len(k)
+		}
 		ctrNames[i] = k
 		i++
 	}
+	theCtx.maxLen = maxLen
 	sort.Strings(ctrNames)
 	for k := range ctrNames {
 		if theCtx.logCb != nil {
@@ -157,9 +163,6 @@ func InitCounters() {
 
 	go func() { // per minute checker
 		theCtxLock.Lock()
-		theCtx.fmtString = "%-90s  %20d %20d\n"
-		theCtx.fmtStringStr = "%-90s  %20s %20s\n"
-		theCtx.fmtStringF64 = "%-90s  %20f %20f\n"
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
@@ -167,6 +170,9 @@ func InitCounters() {
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
+			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20d %20d\n"
+			theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20s %20s\n"
+			theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20f %20f\n"
 			LogCounters()
 		}
 	}()
@@ -300,7 +306,7 @@ func SetLogInterval(i float64) {
 	theCtxLock.Unlock()
 }
 
-// SetFmtString sets the format string to log the counters with.  It must have a %s and a %d
+// SetFmtString sets the format string to log the counters with.  It must have a %s and two %d
 func SetFmtString(fs string) {
 	theCtxLock.Lock()
 	theCtx.fmtString = fs // should validate
