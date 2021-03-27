@@ -170,9 +170,9 @@ func InitCounters() {
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
-			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20d %20d\n"
-			theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20s %20s\n"
-			theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+10) + "s  %20f %20f\n"
+			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"
+			theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20s %20s\n"
+			theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20f %20f\n"
 			LogCounters()
 		}
 	}()
