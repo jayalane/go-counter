@@ -88,16 +88,7 @@ func LogCounters() {
 	}
 	ctrNames := make([]string, len(theCtx.counters))
 	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
-	i = 0
-	maxLen := 0
-	for k := range theCtx.counters {
-		if len(k) > maxLen {
-			maxLen = len(k)
-		}
-		ctrNames[i] = k
-		i++
-	}
-	theCtx.maxLen = maxLen
+	updateMaxLen(&ctrNames)
 	sort.Strings(ctrNames)
 	for k := range ctrNames {
 		if theCtx.logCb != nil {
@@ -113,6 +104,22 @@ func LogCounters() {
 	if theCtx.logCb != nil {
 		theCtx.logCb(cbData)
 	}
+}
+
+// maxLen updates the max len for formatting
+func updateMaxLen(ctrNames *[]string) {
+	i := 0
+	maxLen := 0
+	for k := range theCtx.counters {
+		if len(k)+len(theCtx.counters[k].prefix) > maxLen {
+			maxLen = len(k) + len(theCtx.counters[k].prefix)
+		}
+		if ctrNames != nil {
+			(*ctrNames)[i] = k
+		}
+		i++
+	}
+	theCtx.maxLen = maxLen
 }
 
 // InitCounters should be called at least once to start the go routines etc.
@@ -166,10 +173,15 @@ func InitCounters() {
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
+		once := false
 		theCtxLock.Unlock()
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
+			if !once {
+				updateMaxLen(nil)
+				once = true
+			}
 			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"
 			theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20s %20s\n"
 			theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20f %20f\n"
