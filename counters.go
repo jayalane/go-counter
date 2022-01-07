@@ -13,7 +13,7 @@ import (
 )
 
 // MetricReport is the minutes change in
-// the named named
+// the named metric
 type MetricReport struct {
 	Name  string
 	Delta int64
@@ -161,7 +161,7 @@ func InitCounters() {
 					c.maxSeen = n // same time.Now for all three
 				}
 				theCtx.countersLock.Lock()
-				theCtx.counters[str] = c
+				theCtx.counters[str] = c // I forget why this is needed.
 				theCtx.countersLock.Unlock()
 				// removed default because this should block
 			}
@@ -196,10 +196,16 @@ func Incr(name string) {
 	IncrDelta(name, 1)
 }
 
+// IncrSuffix allows you to do an Incr without runtime lookup of the
+// caller for the suffix
+func IncrSuffix(name string, suffix string) {
+	IncrDeltaSuffix(name, 1, suffix)
+}
+
 // IncrSync is the faster API - will create counter, and add one to it, as needed.
 // One line does it all.
 func IncrSync(name string) {
-	IncrDelta(name, 1)
+	IncrDeltaSync(name, 1)
 }
 
 // AddMetaCounter adds in a CB to calculate a new number based on other counters
@@ -221,6 +227,19 @@ func IncrDelta(name string, i int64) {
 	prefix := getCallerFunctionName()
 	select {
 	case theCtx.c <- counterMsg{name, prefix, i}:
+		// good
+	default:
+		// bad but ok
+	}
+}
+
+// IncrDeltaSuffix is most versatile API - You can add more than 1 to
+// the counter (negative values are fine) and provide a static/fast
+// suffix for the counter
+func IncrDeltaSuffix(name string, i int64, suffix string) {
+
+	select {
+	case theCtx.c <- counterMsg{name, suffix, i}:
 		// good
 	default:
 		// bad but ok
@@ -270,6 +289,12 @@ func IncrDeltaSync(name string, i int64) {
 // Decr is used to decrement a counter made with Incr.
 func Decr(name string) {
 	IncrDelta(name, -1)
+}
+
+// DecrSuffix is used to decrement a counter made with Incr with the
+// suffix provided instead of the runtime inspection
+func DecrSuffix(name string, suffix string) {
+	IncrDeltaSuffix(name, -1, suffix)
 }
 
 // RatioTotal can be supplied as a MetaCounter function to calculate e.g. availability between good and bad
