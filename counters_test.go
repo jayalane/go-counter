@@ -29,8 +29,6 @@ func BenchmarkCounter(b *testing.B) {
 	}
 }
 
-var iii int64
-
 func BenchmarkSyncIncr(b *testing.B) {
 	InitCounters()
 	SetLogInterval(1)

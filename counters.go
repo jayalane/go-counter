@@ -53,7 +53,6 @@ type ctx struct {
 	maxLen       int // length of longest metric
 	logCb        MetricReporter
 	countersLock sync.RWMutex
-	reset        time.Time
 	startTime    time.Time
 	started      bool
 	finished     chan bool
