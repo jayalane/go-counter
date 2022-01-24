@@ -178,7 +178,9 @@ func InitCounters() {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 			if !once {
+				theCtx.countersLock.RLock()
 				updateMaxLen(nil)
+				theCtx.countersLock.RUnlock()
 				once = true
 			}
 			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"

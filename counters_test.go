@@ -6,14 +6,18 @@ package counters
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
 
 var cbRan = false
+var cbRanLock = sync.RWMutex{}
 
 func metricReporterCB(metrics []MetricReport) {
+	cbRanLock.Lock()
 	cbRan = true
+	cbRanLock.Unlock()
 	for x := range metrics {
 		m := metrics[x]
 		fmt.Println("CB: ", m.Name, m.Delta)
@@ -55,6 +59,8 @@ func TestCounter(t *testing.T) {
 	IncrDelta("good", 97)
 	IncrDelta("bad", 3)
 	Decr("num_of_things")
+	cbRanLock.RLock()
+	defer cbRanLock.RUnlock()
 	if !cbRan {
 		fmt.Println("Callback did not run")
 		t.Fail()
