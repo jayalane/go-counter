@@ -70,6 +70,13 @@ var theCtxLock = sync.RWMutex{}
 // each minute but can be called externally e.g. at process end.
 func LogCounters() {
 
+	theCtx.countersLock.RLock()
+	updateMaxLen(nil)
+	theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"
+	theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20s %20s\n"
+	theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20f %20f\n"
+	theCtx.countersLock.RUnlock()
+
 	log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 	log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 	theCtx.countersLock.Lock()
@@ -172,20 +179,10 @@ func InitCounters() {
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
-		once := false
 		theCtxLock.Unlock()
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
-			if !once {
-				theCtx.countersLock.RLock()
-				updateMaxLen(nil)
-				theCtx.countersLock.RUnlock()
-				once = true
-			}
-			theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"
-			theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20s %20s\n"
-			theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20f %20f\n"
 			LogCounters()
 		}
 	}()
