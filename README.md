@@ -1,4 +1,3 @@
-
 GoLang Counter Utility
 =====================
 
@@ -19,9 +18,12 @@ I'm using it.
 
 This code offers an "increment a counter" API that is non-blocking,
 using only channels not locking, and which requires no upfront
-configuration (you provide a string name of the counter).  Each minute
-the counts will be printed out (or if you provide a logging API that
-conforms to the given interface, logged TBD).  The numbers will be
+configuration (you provide a string name of the counter). There is
+also a sync version using atomic mutuxes; this is faster in the normal
+case (using less CPU and lower latency) but of course could be a
+source of contention in the general case. 
+
+Each minute the counts will be printed out.  The numbers will be
 old-school aligned and tabularized.  If you provide a callback, then
 each minute you'll get a callback with all string names of the
 existing counters and values for sending to a TSDB type system for
@@ -33,15 +35,13 @@ Chris Lane
 
 *Adivce for starting out*
 
-If you integrate, please let me or them know of your experience and
-any suggestions for improvement.
+If you integrate, please let me know of your experience and any
+suggestions for improvement.
 
 The current API can best be seen in the _test files probably.  
 
 One thing to be aware of is that calling counter_init() will start up
-a go routine or 2 to manage per minute processing.  There will be an API to
-kill them if you are doing odd stuff but normally they will for your
-process life.  
+a go routine or 2 to manage per minute processing.
 
 *Requirements*
 
