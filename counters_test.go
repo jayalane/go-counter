@@ -6,18 +6,15 @@ package counters
 
 import (
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
-var cbRan = false
-var cbRanLock = sync.RWMutex{}
+var cbRan int32 = 0
 
 func metricReporterCB(metrics []MetricReport) {
-	cbRanLock.Lock()
-	cbRan = true
-	cbRanLock.Unlock()
+	atomic.StoreInt32(&cbRan, 1)
 	for x := range metrics {
 		m := metrics[x]
 		fmt.Println("CB: ", m.Name, m.Delta)
@@ -59,9 +56,8 @@ func TestCounter(t *testing.T) {
 	IncrDelta("good", 97)
 	IncrDelta("bad", 3)
 	Decr("num_of_things")
-	cbRanLock.RLock()
-	defer cbRanLock.RUnlock()
-	if !cbRan {
+	c := atomic.LoadInt32(&cbRan)
+	if c != 1 {
 		fmt.Println("Callback did not run")
 		t.Fail()
 	}

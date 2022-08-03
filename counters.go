@@ -53,6 +53,7 @@ type ctx struct {
 	maxLen       int // length of longest metric
 	logCb        MetricReporter
 	countersLock sync.RWMutex
+	// reset        time.Time // TODO
 	startTime    time.Time
 	started      bool
 	finished     chan bool
@@ -179,10 +180,11 @@ func InitCounters() {
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
+		timeSleep := theCtx.timeSleep
 		theCtxLock.Unlock()
 		for {
 			n := time.Now()
-			time.Sleep(time.Second * (time.Duration(theCtx.timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
+			time.Sleep(time.Second * (time.Duration(timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 			LogCounters()
 		}
 	}()
