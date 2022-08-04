@@ -11,7 +11,10 @@ import (
 
 var units = []string{"f", "p", "n", "mi", "m", "", "k", "M", "G", "T", "P"}
 
+var unitSort = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
+
 func deriveDistName(name string, value float64) string {
+
 	res := ""
 	sign := ""
 	if value < 0 {
@@ -22,32 +25,34 @@ func deriveDistName(name string, value float64) string {
 	size3 := int(math.Floor(float64(size) / 3.0)) // int division rounding left
 	shortVal := value / math.Pow(10, float64(size3*3))
 	unit := ""
+	unitOrder := ""
 	if size3+5 < len(units)-1 && 0 <= size3+5 {
 		unit = units[size3+5]
+		unitOrder = unitSort[size3+5]
 	} else {
 		unit = "handleOddSizes(string, value)"
 	}
 	s := ""
 	if shortVal >= 500 {
-		s = "500" + unit + "-1" + units[size3+6]
+		s = "500" + unit + "-001" + units[size3+6]
 	} else if shortVal >= 200 {
 		s = "200" + unit + "-500" + unit
 	} else if shortVal >= 100 {
 		s = "100" + unit + "-200" + unit
 	} else if shortVal >= 50 {
-		s = "50" + unit + "-100" + unit
+		s = "050" + unit + "-100" + unit
 	} else if shortVal >= 20 {
-		s = "20" + unit + "-50" + unit
+		s = "020" + unit + "-050" + unit
 	} else if shortVal >= 10 {
-		s = "10" + unit + "-20" + unit
+		s = "010" + unit + "-020" + unit
 	} else if shortVal >= 5 {
-		s = "5" + unit + "-10" + unit
+		s = "005" + unit + "-010" + unit
 	} else if shortVal >= 2 {
-		s = "2" + unit + "-5" + unit
+		s = "002" + unit + "-005" + unit
 	} else if shortVal >= 1 {
-		s = "1" + unit + "-2" + unit
+		s = "001" + unit + "-002" + unit
 	}
-	res = name + sign + "[" + s + "]"
+	res = name + sign + unitOrder + "[" + s + "]"
 	return res
 }
 
