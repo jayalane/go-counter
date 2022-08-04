@@ -27,7 +27,7 @@ type metaCounter struct {
 	name   string
 	c1     string
 	c2     string
-	prefix string
+	suffix string
 	f      MetaCounterF
 }
 
@@ -38,12 +38,12 @@ type counter struct {
 	maxSeen   time.Time
 	firstSeen time.Time
 	lastSeen  time.Time
-	prefix    string
+	suffix    string
 }
 
 type counterMsg struct {
 	name   string
-	prefix string
+	suffix string
 	i      int64
 }
 
@@ -118,8 +118,8 @@ func updateMaxLen(ctrNames *[]string) {
 	i := 0
 	maxLen := 0
 	for k := range theCtx.counters {
-		if len(k)+len(theCtx.counters[k].prefix) > maxLen {
-			maxLen = len(k) + len(theCtx.counters[k].prefix)
+		if len(k)+len(theCtx.counters[k].suffix) > maxLen {
+			maxLen = len(k) + len(theCtx.counters[k].suffix)
 		}
 		if ctrNames != nil {
 			(*ctrNames)[i] = k
@@ -150,7 +150,7 @@ func InitCounters() {
 				return
 			case cm := <-theCtx.c:
 				str := cm.name
-				prefix := cm.prefix
+				suffix := cm.suffix
 				i := cm.i
 				theCtx.countersLock.Lock()
 				c, ok := theCtx.counters[str]
@@ -159,7 +159,7 @@ func InitCounters() {
 				if !ok {
 					c = counter{}
 					c.firstSeen = n
-					c.prefix = prefix
+					c.suffix = suffix
 				}
 				c.lastSeen = n
 				c.data += i // bad name
@@ -208,14 +208,20 @@ func IncrSync(name string) {
 	IncrDeltaSync(name, 1)
 }
 
+// IncrSyncSuffix is the fastest API - will create counter, and add
+// one to it, as needed.  One line does it all.
+func IncrSyncSuffix(name string, suffix string) {
+	IncrDeltaSyncSuffix(name, 1, suffix)
+}
+
 // AddMetaCounter adds in a CB to calculate a new number based on other counters
 func AddMetaCounter(name string,
 	c1 string,
 	c2 string,
 	f MetaCounterF) {
-	prefix := getCallerFunctionName()
+	suffix := getCallerFunctionName()
 	theCtxLock.Lock()
-	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, prefix, f}
+	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, suffix, f}
 	theCtxLock.Unlock()
 }
 
@@ -224,9 +230,9 @@ type MetaCounterF func(int64, int64) float64
 
 // IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
 func IncrDelta(name string, i int64) {
-	prefix := getCallerFunctionName()
+	suffix := getCallerFunctionName()
 	select {
-	case theCtx.c <- counterMsg{name, prefix, i}:
+	case theCtx.c <- counterMsg{name, suffix, i}:
 		// good
 	default:
 		// bad but ok
@@ -255,13 +261,19 @@ func ReadSync(name string) int64 {
 		fmt.Println("Can't find", name)
 		return 0
 	}
-	// skip the prefix check - name is unique anyways.
+	// skip the suffix check - name is unique anyways.
 	return c.data
 }
 
 // IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
 func IncrDeltaSync(name string, i int64) {
-	prefix := getCallerFunctionName()
+	suffix := getCallerFunctionName()
+	IncrDeltaSyncSuffix(name, i, suffix)
+}
+
+// IncrDeltaSyncSuffix is best API.
+func IncrDeltaSyncSuffix(name string, i int64, suffix string) {
+
 	theCtx.countersLock.Lock()
 	c, ok := theCtx.counters[name]
 	theCtx.countersLock.Unlock()
@@ -269,7 +281,7 @@ func IncrDeltaSync(name string, i int64) {
 	if !ok {
 		c = counter{}
 		c.firstSeen = n
-		c.prefix = prefix
+		c.suffix = suffix
 	}
 	atomic.AddInt64(&c.data, i)
 	maxSeenSet := false
@@ -315,14 +327,14 @@ func logMetaCounter(mc metaCounter, cs map[string]counter) {
 	vDelta := mc.f(c1.data-c1.oldData, c2.data-c2.oldData)
 
 	log.Printf(theCtx.fmtStringF64,
-		mc.name+"/"+mc.prefix,
+		mc.name+"/"+mc.suffix,
 		vTotal,
 		vDelta)
 }
 
 func logCounter(name string, mc counter) {
 	log.Printf(theCtx.fmtString,
-		name+"/"+mc.prefix,
+		name+"/"+mc.suffix,
 		mc.data,
 		mc.data-mc.oldData)
 }
