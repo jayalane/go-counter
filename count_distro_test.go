@@ -5,6 +5,7 @@ package counters
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 type t struct {
@@ -79,7 +80,6 @@ func TestDerivDistName(t *testing.T) {
 			t.Fail()
 		}
 	}
-
 }
 
 func TestDerivMarkDist(t *testing.T) {
@@ -88,5 +88,8 @@ func TestDerivMarkDist(t *testing.T) {
 	for _, te := range testsDerived {
 		MarkDistribution(te.name, te.value)
 	}
+	TimeFuncRun("chris", func() {
+		time.Sleep(256 * time.Millisecond)
+	})
 	LogCounters()
 }
