@@ -24,11 +24,10 @@ type MetricReport struct {
 type MetricReporter func(metrics []MetricReport) // callback used below in SetMetricReporter
 
 type metaCounter struct {
-	name   string
-	c1     string
-	c2     string
-	suffix string
-	f      MetaCounterF
+	name string
+	c1   string
+	c2   string
+	f    MetaCounterF
 }
 
 type counter struct {
@@ -38,7 +37,6 @@ type counter struct {
 	maxSeen   time.Time
 	firstSeen time.Time
 	lastSeen  time.Time
-	suffix    string
 }
 
 type counterMsg struct {
@@ -118,8 +116,8 @@ func updateMaxLen(ctrNames *[]string) {
 	i := 0
 	maxLen := 0
 	for k := range theCtx.counters {
-		if len(k)+len(theCtx.counters[k].suffix) > maxLen {
-			maxLen = len(k) + len(theCtx.counters[k].suffix)
+		if len(k) > maxLen {
+			maxLen = len(k)
 		}
 		if ctrNames != nil {
 			(*ctrNames)[i] = k
@@ -149,8 +147,7 @@ func InitCounters() {
 			case <-theCtx.finished:
 				return
 			case cm := <-theCtx.c:
-				str := cm.name
-				suffix := cm.suffix
+				str := cm.name + "/" + cm.suffix
 				i := cm.i
 				theCtx.countersLock.Lock()
 				c, ok := theCtx.counters[str]
@@ -159,7 +156,6 @@ func InitCounters() {
 				if !ok {
 					c = counter{}
 					c.firstSeen = n
-					c.suffix = suffix
 				}
 				c.lastSeen = n
 				c.data += i // bad name
@@ -221,7 +217,7 @@ func AddMetaCounter(name string,
 	f MetaCounterF) {
 	suffix := getCallerFunctionName()
 	theCtxLock.Lock()
-	theCtx.metaCtrs[name] = metaCounter{name, c1, c2, suffix, f}
+	theCtx.metaCtrs[name+"/"+suffix] = metaCounter{name, c1, c2, f}
 	theCtxLock.Unlock()
 }
 
@@ -231,12 +227,7 @@ type MetaCounterF func(int64, int64) float64
 // IncrDelta is most versatile API - You can add more than 1 to the counter (negative values are fine).
 func IncrDelta(name string, i int64) {
 	suffix := getCallerFunctionName()
-	select {
-	case theCtx.c <- counterMsg{name, suffix, i}:
-		// good
-	default:
-		// bad but ok
-	}
+	IncrDeltaSuffix(name, i, suffix)
 }
 
 // IncrDeltaSuffix is most versatile API - You can add more than 1 to
@@ -275,13 +266,12 @@ func IncrDeltaSync(name string, i int64) {
 func IncrDeltaSyncSuffix(name string, i int64, suffix string) {
 
 	theCtx.countersLock.Lock()
-	c, ok := theCtx.counters[name]
+	c, ok := theCtx.counters[name+"/"+suffix]
 	theCtx.countersLock.Unlock()
 	n := time.Now()
 	if !ok {
 		c = counter{}
 		c.firstSeen = n
-		c.suffix = suffix
 	}
 	atomic.AddInt64(&c.data, i)
 	maxSeenSet := false
@@ -327,14 +317,14 @@ func logMetaCounter(mc metaCounter, cs map[string]counter) {
 	vDelta := mc.f(c1.data-c1.oldData, c2.data-c2.oldData)
 
 	log.Printf(theCtx.fmtStringF64,
-		mc.name+"/"+mc.suffix,
+		mc.name,
 		vTotal,
 		vDelta)
 }
 
 func logCounter(name string, mc counter) {
 	log.Printf(theCtx.fmtString,
-		name+"/"+mc.suffix,
+		name,
 		mc.data,
 		mc.data-mc.oldData)
 }
