@@ -6,11 +6,16 @@ package counters
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// numChannels is the number of API facing channels and reading goroutins
+// to reduce lock contention
+const numChannels = 10
 
 // MetricReport is the minutes change in
 // the named metric
@@ -55,7 +60,7 @@ type ctx struct {
 	startTime    time.Time
 	started      bool
 	finished     chan bool
-	c            chan counterMsg
+	c            []chan counterMsg
 	fmtString    string
 	fmtStringStr string
 	fmtStringF64 string
@@ -134,42 +139,47 @@ func InitCounters() {
 	if theCtx.started {
 		return
 	}
-	theCtx.c = make(chan counterMsg, 10000)
+	theCtx.c = make([]chan counterMsg, 10)
+	for i := 0; i < 10; i++ {
+		theCtx.c[i] = make(chan counterMsg, 10000)
+	}
 	theCtx.finished = make(chan bool, 1)
 	theCtx.counters = make(map[string]counter)
 	theCtx.metaCtrs = make(map[string]metaCounter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
 	theCtx.countersLock = sync.RWMutex{}
-	go func() { //reader
-		for {
-			select {
-			case <-theCtx.finished:
-				return
-			case cm := <-theCtx.c:
-				str := cm.name + "/" + cm.suffix
-				i := cm.i
-				theCtx.countersLock.Lock()
-				c, ok := theCtx.counters[str]
-				theCtx.countersLock.Unlock()
-				n := time.Now()
-				if !ok {
-					c = counter{}
-					c.firstSeen = n
+	for i := 0; i < 10; i++ {
+		go func(index int) { //reader
+			for {
+				select {
+				case <-theCtx.finished:
+					return
+				case cm := <-theCtx.c[index]:
+					str := cm.name + "/" + cm.suffix
+					i := cm.i
+					theCtx.countersLock.Lock()
+					c, ok := theCtx.counters[str]
+					theCtx.countersLock.Unlock()
+					n := time.Now()
+					if !ok {
+						c = counter{}
+						c.firstSeen = n
+					}
+					c.lastSeen = n
+					c.data += i // bad name
+					if c.data > c.maxVal {
+						c.maxVal = c.data
+						c.maxSeen = n // same time.Now for all three
+					}
+					theCtx.countersLock.Lock()
+					theCtx.counters[str] = c // I forget why this is needed.
+					theCtx.countersLock.Unlock()
+					// removed default because this should block
 				}
-				c.lastSeen = n
-				c.data += i // bad name
-				if c.data > c.maxVal {
-					c.maxVal = c.data
-					c.maxSeen = n // same time.Now for all three
-				}
-				theCtx.countersLock.Lock()
-				theCtx.counters[str] = c // I forget why this is needed.
-				theCtx.countersLock.Unlock()
-				// removed default because this should block
 			}
-		}
-	}()
+		}(i)
+	}
 
 	go func() { // per minute checker
 		theCtxLock.Lock()
@@ -234,9 +244,9 @@ func IncrDelta(name string, i int64) {
 // the counter (negative values are fine) and provide a static/fast
 // suffix for the counter
 func IncrDeltaSuffix(name string, i int64, suffix string) {
-
+	j := rand.Uint32() % 10
 	select {
-	case theCtx.c <- counterMsg{name, suffix, i}:
+	case theCtx.c[j] <- counterMsg{name, suffix, i}:
 		// good
 	default:
 		// bad but ok
