@@ -1,0 +1,18 @@
+
+.cache
+
+# General file ignores
+
+.DS_Store
+*~
+._*
+.\#*
+\#*\#
+.nfs*
+
+*.out
+*.pprof
+config.txt
+
+# Vim
+*.swp
