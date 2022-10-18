@@ -253,7 +253,7 @@ func IncrDeltaSuffix(name string, i int64, suffix string) {
 	}
 }
 
-// ReadSync takes a stat name and returns its value
+// ReadSync takes a stat name (including suffix) and returns its value
 func ReadSync(name string) int64 {
 	theCtx.countersLock.Lock()
 	c, ok := theCtx.counters[name]
@@ -262,7 +262,6 @@ func ReadSync(name string) int64 {
 		fmt.Println("Can't find", name)
 		return 0
 	}
-	// skip the suffix check - name is unique anyways.
 	return c.data
 }
 

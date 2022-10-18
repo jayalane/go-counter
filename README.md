@@ -46,3 +46,13 @@ a go routine or 2 to manage per minute processing.
 *Requirements*
 
 None at present.  
+
+*TODO*
+
+o String builder to speed up
+
+o precalculate tables for deriveDistName maths
+
+
+
+
