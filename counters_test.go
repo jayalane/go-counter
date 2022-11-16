@@ -58,9 +58,8 @@ func TestCounter(t *testing.T) {
 	Decr("num_of_things")
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
-		fmt.Println("Callback did not run")
+		fmt.Println("Callback did not run", c)
 		t.Fail()
 	}
 	time.Sleep(1100 * time.Millisecond)
-
 }
