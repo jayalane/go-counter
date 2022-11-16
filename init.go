@@ -275,7 +275,7 @@ func InitCounters() {
 		timeSleep := theCtx.timeSleep
 		theCtxLock.Unlock()
 		for {
-			checkRunTime()
+			checkRuntime()
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
 			LogCounters()
