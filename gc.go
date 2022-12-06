@@ -32,7 +32,7 @@ func checkRuntime() {
 		}
 		if value.Kind() == metrics.KindUint64 && desc[m.Name].Cumulative {
 			if value.Uint64() > math.MaxInt64 {
-				fmt.Println("Skipping large metric", value.Uint64(), math.MaxInt64)
+				fmt.Println("Skipping large metric", value.Uint64(), "9223372036854775807") // string for 32 bit architectures
 				continue
 			}
 			IncrDeltaSuffix(name, int64(value.Uint64()), "go-runtime")
