@@ -118,8 +118,15 @@ func LogCounters() {
 	valNames := make([]string, len(theCtx.values))
 	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
 	updateMaxLen(&ctrNames, &valNames)
-	sort.Strings(ctrNames)
 	sort.Strings(valNames)
+	for k := range valNames {
+		// TODO
+		logValue(valNames[k], theCtx.values[valNames[k]])
+		newV := theCtx.values[valNames[k]]
+		newV.oldData = newV.data          // have to update old data
+		theCtx.values[valNames[k]] = newV // this way
+	}
+	sort.Strings(ctrNames)
 	for k := range ctrNames {
 		if theCtx.logCb != nil {
 			cbData[k].Name = ctrNames[k]
@@ -129,17 +136,6 @@ func LogCounters() {
 		newC := theCtx.counters[ctrNames[k]]
 		newC.oldData = newC.data            // have to update old data
 		theCtx.counters[ctrNames[k]] = newC // this way
-	}
-	theCtx.ctxLock.Unlock()
-
-	// the the values
-	theCtx.ctxLock.Lock()
-	for k := range valNames {
-		// TODO
-		logValue(valNames[k], theCtx.values[valNames[k]])
-		newV := theCtx.values[valNames[k]]
-		newV.oldData = newV.data          // have to update old data
-		theCtx.values[valNames[k]] = newV // this way
 	}
 	theCtx.ctxLock.Unlock()
 	if theCtx.logCb != nil {
