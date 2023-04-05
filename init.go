@@ -26,6 +26,17 @@ type MetricReport struct {
 // to dump metrics once a minute to some other system
 type MetricReporter func(metrics []MetricReport) // callback used below in SetMetricReporter
 
+// ValReport is the minutes change in
+// the named metric
+type ValReport struct {
+	Name  string
+	Delta float64
+}
+
+// ValReporter is a function callback that can be registered
+// to dump metrics once a minute to some other system
+type ValReporter func(metrics []ValReport) // callback used below in SetValReporter
+
 type metaCounter struct {
 	name string
 	c1   string
@@ -72,6 +83,7 @@ type ctx struct {
 	metaCtrs     map[string]metaCounter
 	maxLen       int // length of longest metric
 	logCb        MetricReporter
+	valCb        ValReporter
 	ctxLock      sync.RWMutex
 	startTime    time.Time
 	started      bool
@@ -117,10 +129,14 @@ func LogCounters() {
 	ctrNames := make([]string, len(theCtx.counters))
 	valNames := make([]string, len(theCtx.values))
 	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
+	cbVal := make([]ValReport, len(theCtx.values))       // for CB
 	updateMaxLen(&ctrNames, &valNames)
 	sort.Strings(valNames)
 	for k := range valNames {
-		// TODO
+		if theCtx.valCb != nil {
+			cbVal[k].Name = valNames[k]
+			cbVal[k].Delta = theCtx.values[valNames[k]].data - theCtx.values[valNames[k]].oldData
+		}
 		logValue(valNames[k], theCtx.values[valNames[k]])
 		newV := theCtx.values[valNames[k]]
 		newV.oldData = newV.data          // have to update old data
@@ -140,6 +156,9 @@ func LogCounters() {
 	theCtx.ctxLock.Unlock()
 	if theCtx.logCb != nil {
 		theCtx.logCb(cbData)
+	}
+	if theCtx.valCb != nil {
+		theCtx.valCb(cbVal)
 	}
 }
 
@@ -285,6 +304,15 @@ func InitCounters() {
 func SetMetricReporter(fn MetricReporter) {
 	theCtxLock.Lock()
 	theCtx.logCb = fn
+	theCtxLock.Unlock()
+}
+
+// SetValReporter specifies a function to be called once per
+// LogInterval with the names of the current metrics which are
+// float64s and the last minute delta
+func SetValReporter(fn ValReporter) {
+	theCtxLock.Lock()
+	theCtx.valCb = fn
 	theCtxLock.Unlock()
 }
 

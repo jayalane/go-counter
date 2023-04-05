@@ -21,6 +21,16 @@ func metricReporterCB(metrics []MetricReport) {
 	}
 }
 
+var valCbRan int32 = 0
+
+func valReporterCB(metrics []ValReport) {
+	atomic.StoreInt32(&valCbRan, 1)
+	for x := range metrics {
+		m := metrics[x]
+		fmt.Println("CB: ", m.Name, m.Delta)
+	}
+}
+
 func BenchmarkCounter(b *testing.B) {
 	InitCounters()
 	SetLogInterval(1)
@@ -45,6 +55,7 @@ func TestCounter(t *testing.T) {
 	InitCounters()
 	SetLogInterval(1)
 	SetMetricReporter(metricReporterCB)
+	SetValReporter(valReporterCB)
 	AddMetaCounter("availability", "good", "bad", RatioTotal)
 	for i := 0; i < 1000; i++ {
 		go func() {
@@ -59,6 +70,11 @@ func TestCounter(t *testing.T) {
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
 		fmt.Println("Callback did not run", c)
+		t.Fail()
+	}
+	cc := atomic.LoadInt32(&valCbRan)
+	if cc != 1 {
+		fmt.Println("Val callback did not run", cc)
 		t.Fail()
 	}
 	time.Sleep(1100 * time.Millisecond)
