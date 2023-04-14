@@ -28,7 +28,7 @@ func SetSuffix(name string, val float64, suffix string) {
 	}
 }
 
-func logValue(name string, mc value) {
+func logValue(name string, mc *value) {
 	fmtString := strings.ReplaceAll(theCtx.fmtString, "d", "f") // fragile
 	log.Printf(fmtString,
 		name,

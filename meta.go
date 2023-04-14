@@ -14,7 +14,8 @@ func AddMetaCounter(name string,
 	f MetaCounterF) {
 	suffix := getCallerFunctionName()
 	theCtxLock.Lock()
-	theCtx.metaCtrs[name+"/"+suffix] = metaCounter{name, c1, c2, f}
+	// adding the suffix to counter names keeps APi compatibility but is less useful
+	theCtx.metaCtrs[name+"/"+suffix] = &metaCounter{name + "/" + suffix, c1 + "/" + suffix, c2 + "/" + suffix, f} 
 	theCtxLock.Unlock()
 }
 
@@ -26,7 +27,7 @@ func RatioTotal(a int64, b int64) float64 {
 	return float64(a) / (float64(a) + float64(b))
 }
 
-func logMetaCounter(mc metaCounter, cs map[string]counter) {
+func logMetaCounter(mc *metaCounter, cs map[string]*counter) {
 	c1, ok := cs[mc.c1]
 	if !ok {
 		return

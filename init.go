@@ -8,6 +8,7 @@ import (
 	"log"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -45,12 +46,8 @@ type metaCounter struct {
 }
 
 type counter struct {
-	oldData   int64
-	data      int64
-	maxVal    int64
-	maxSeen   time.Time
-	firstSeen time.Time
-	lastSeen  time.Time
+	oldData int64
+	data    int64
 }
 
 type counterMsg struct {
@@ -60,15 +57,9 @@ type counterMsg struct {
 }
 
 type value struct {
-	oldData   float64
-	data      float64
-	maxVal    float64
-	minVal    float64
-	N         float64
-	maxSeen   time.Time
-	minSeen   time.Time
-	firstSeen time.Time
-	lastSeen  time.Time
+	oldData float64
+	data    float64
+	N       float64
 }
 
 type valueMsg struct {
@@ -78,9 +69,9 @@ type valueMsg struct {
 }
 
 type ctx struct {
-	values       map[string]value
-	counters     map[string]counter
-	metaCtrs     map[string]metaCounter
+	values       map[string]*value
+	counters     map[string]*counter
+	metaCtrs     map[string]*metaCounter
 	maxLen       int // length of longest metric
 	logCb        MetricReporter
 	valCb        ValReporter
@@ -112,26 +103,35 @@ func LogCounters() {
 
 	log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
 	log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
+
 	theCtx.ctxLock.Lock()
+
 	i := 0
+
 	// do meta counters first before oldData is updated
 	mctrNames := make([]string, len(theCtx.metaCtrs))
+
 	for k := range theCtx.metaCtrs { // cool scope is only in loop
 		mctrNames[i] = theCtx.metaCtrs[k].name
 		i++
 	}
+
 	log.Printf(theCtx.fmtStringStr, "---M-E-T-A- -C-O-U-N-T----", time.Now(), "")
 	sort.Strings(mctrNames)
+
 	for k := range mctrNames {
 		logMetaCounter(theCtx.metaCtrs[mctrNames[k]], theCtx.counters)
 	}
+
 	// then the counters
 	ctrNames := make([]string, len(theCtx.counters))
 	valNames := make([]string, len(theCtx.values))
 	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
 	cbVal := make([]ValReport, len(theCtx.values))       // for CB
+
 	updateMaxLen(&ctrNames, &valNames)
 	sort.Strings(valNames)
+
 	for k := range valNames {
 		if theCtx.valCb != nil {
 			cbVal[k].Name = valNames[k]
@@ -139,24 +139,28 @@ func LogCounters() {
 		}
 		logValue(valNames[k], theCtx.values[valNames[k]])
 		newV := theCtx.values[valNames[k]]
-		newV.oldData = newV.data          // have to update old data
-		theCtx.values[valNames[k]] = newV // this way
+		newV.oldData = newV.data // have to update old data
 	}
+
 	sort.Strings(ctrNames)
+
 	for k := range ctrNames {
 		if theCtx.logCb != nil {
 			cbData[k].Name = ctrNames[k]
-			cbData[k].Delta = theCtx.counters[ctrNames[k]].data - theCtx.counters[ctrNames[k]].oldData
+			data := atomic.LoadInt64(&theCtx.counters[ctrNames[k]].data)
+			cbData[k].Delta = data - theCtx.counters[ctrNames[k]].oldData
 		}
 		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
 		newC := theCtx.counters[ctrNames[k]]
-		newC.oldData = newC.data            // have to update old data
-		theCtx.counters[ctrNames[k]] = newC // this way
+		newC.oldData = newC.data // have to update old data
 	}
+
 	theCtx.ctxLock.Unlock()
+
 	if theCtx.logCb != nil {
 		theCtx.logCb(cbData)
 	}
+
 	if theCtx.valCb != nil {
 		theCtx.valCb(cbVal)
 	}
@@ -205,9 +209,9 @@ func InitCounters() {
 		theCtx.v[i] = make(chan valueMsg, 100000)
 	}
 	theCtx.finished = make(chan bool, 1)
-	theCtx.counters = make(map[string]counter)
-	theCtx.values = make(map[string]value)
-	theCtx.metaCtrs = make(map[string]metaCounter)
+	theCtx.counters = make(map[string]*counter)
+	theCtx.values = make(map[string]*value)
+	theCtx.metaCtrs = make(map[string]*metaCounter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
 	// counters go routines
@@ -221,23 +225,18 @@ func InitCounters() {
 				case cm := <-theCtx.c[index]:
 					str := cm.name + "/" + cm.suffix
 					i := cm.i
-					theCtx.ctxLock.Lock()
+					theCtx.ctxLock.RLock()
 					c, ok := theCtx.counters[str]
-					theCtx.ctxLock.Unlock()
-					n := time.Now()
+					theCtx.ctxLock.RUnlock()
 					if !ok {
-						c = counter{}
-						c.firstSeen = n
+						c = &counter{}
+						theCtx.ctxLock.Lock()
+						c.data = i
+						theCtx.counters[str] = c
+						theCtx.ctxLock.Unlock()
+					} else {
+						atomic.AddInt64(&c.data, i) // bad name
 					}
-					c.lastSeen = n
-					c.data += i // bad name
-					if c.data > c.maxVal {
-						c.maxVal = c.data
-						c.maxSeen = n // same time.Now for all three
-					}
-					theCtx.ctxLock.Lock()
-					theCtx.counters[str] = c // I forget why this is needed.
-					theCtx.ctxLock.Unlock()
 					// removed default because this should block
 				}
 			}
@@ -245,7 +244,6 @@ func InitCounters() {
 	}
 
 	// values go routines
-	theCtx.ctxLock = sync.RWMutex{}
 	for i := 0; i < numChannels; i++ {
 		go func(index int) { //reader
 			for {
@@ -258,25 +256,18 @@ func InitCounters() {
 					theCtx.ctxLock.Lock()
 					v, ok := theCtx.values[str]
 					theCtx.ctxLock.Unlock()
-					now := time.Now()
 					if !ok {
-						v = value{}
-						v.firstSeen = now
+						v = &value{}
+						v.data = val
+						theCtx.ctxLock.Lock()
+						theCtx.values[str] = v
+						theCtx.ctxLock.Unlock()
+					} else {
+						theCtx.ctxLock.Lock()
+						v.data = val // bad but no atomics and just 1/minute
+						theCtx.ctxLock.Unlock()
+						// removed default because this should block
 					}
-					v.lastSeen = now
-					v.data = val
-					if v.data > v.maxVal {
-						v.maxVal = v.data
-						v.maxSeen = now
-					}
-					if v.data < v.minVal {
-						v.minVal = v.data
-						v.minSeen = now
-					}
-					theCtx.ctxLock.Lock()
-					theCtx.values[str] = v // I forget why this is needed.
-					theCtx.ctxLock.Unlock()
-					// removed default because this should block
 				}
 			}
 		}(i)
@@ -290,9 +281,9 @@ func InitCounters() {
 		timeSleep := theCtx.timeSleep
 		theCtxLock.Unlock()
 		for {
-			checkRuntime()
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
+			checkRuntime()
 			LogCounters()
 		}
 	}()

@@ -80,3 +80,10 @@ func MarkDistributionSync(name string, value float64) {
 	derived := deriveDistName(name, value)
 	IncrSync(derived)
 }
+
+// MarkDistributionSyncSuffix is the fastest API
+// One line does it all.
+func MarkDistributionSyncSuffix(name string, value float64, suffix string) {
+	derived := deriveDistName(name, value)
+	IncrSyncSuffix(derived, suffix)
+}

@@ -8,7 +8,6 @@ import (
 	"log"
 	"math/rand"
 	"sync/atomic"
-	"time"
 )
 
 // Incr is the main API - will create counter, and add one to it, as needed.
@@ -56,9 +55,9 @@ func IncrDeltaSuffix(name string, i int64, suffix string) {
 
 // ReadSync takes a stat name (including suffix) and returns its value
 func ReadSync(name string) int64 {
-	theCtx.ctxLock.Lock()
+	theCtx.ctxLock.RLock()
 	c, ok := theCtx.counters[name]
-	theCtx.ctxLock.Unlock()
+	theCtx.ctxLock.RUnlock()
 	if !ok {
 		fmt.Println("Can't find", name)
 		return 0
@@ -75,27 +74,19 @@ func IncrDeltaSync(name string, i int64) {
 // IncrDeltaSyncSuffix is best API.
 func IncrDeltaSyncSuffix(name string, i int64, suffix string) {
 
-	theCtx.ctxLock.Lock()
-	c, ok := theCtx.counters[name+"/"+suffix]
-	theCtx.ctxLock.Unlock()
-	now := time.Now()
+	theCtx.ctxLock.RLock()
+	fullName := name + "/" + suffix
+	c, ok := theCtx.counters[fullName]
+	theCtx.ctxLock.RUnlock()
 	if !ok {
-		c = counter{}
-		c.firstSeen = now
+		c = &counter{}
+		c.data = i
+		theCtx.ctxLock.Lock()
+		theCtx.counters[fullName] = c
+		theCtx.ctxLock.Unlock()
+	} else {
+		atomic.AddInt64(&c.data, i)
 	}
-	atomic.AddInt64(&c.data, i)
-	maxSeenSet := false
-	if atomic.LoadInt64(&c.data) > atomic.LoadInt64(&c.maxVal) {
-		atomic.StoreInt64(&c.maxVal, c.data)
-		maxSeenSet = true
-	}
-	theCtx.ctxLock.Lock()
-	c.lastSeen = now
-	if maxSeenSet {
-		c.maxSeen = now
-	}
-	theCtx.counters[name+"/"+suffix] = c
-	theCtx.ctxLock.Unlock()
 }
 
 // Decr is used to decrement a counter made with Incr.
@@ -109,7 +100,7 @@ func DecrSuffix(name string, suffix string) {
 	IncrDeltaSuffix(name, -1, suffix)
 }
 
-func logCounter(name string, mc counter) {
+func logCounter(name string, mc *counter) {
 	log.Printf(theCtx.fmtString,
 		name,
 		mc.data,

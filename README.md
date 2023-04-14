@@ -21,7 +21,11 @@ using only channels not locking, and which requires no upfront
 configuration (you provide a string name of the counter). There is
 also a sync version using atomic mutuxes; this is faster in the normal
 case (using less CPU and lower latency) but of course could be a
-source of contention in the general case. 
+source of contention in the general case. The channel API uses ten
+channels so that there's less contention for the channel.
+
+At pretty high rates of counting (5 million calls/second, maybe a
+dozen things counted each call).
 
 Each minute the counts will be printed out.  The numbers will be
 old-school aligned and tabularized.  If you provide a callback, then
@@ -40,8 +44,10 @@ suggestions for improvement.
 
 The current API can best be seen in the _test files probably.  
 
-One thing to be aware of is that calling counter_init() will start up
-a go routine or 2 to manage per minute processing.
+One thing to be aware of is that calling InitCounters() will start up
+a go routine or 2 to manage per minute processing, and also will
+startup 10 go routines to listen to the ten channels used to reduce
+contention for the sending channel.
 
 *Requirements*
 

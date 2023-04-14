@@ -60,12 +60,12 @@ func TestCounter(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		go func() {
 			Incr("num_of_things")
-			Incr("a_num_of_things")
+			IncrSync("a_num_of_things")
 		}()
 	}
 	time.Sleep(1100 * time.Millisecond)
 	IncrDelta("good", 97)
-	IncrDelta("bad", 3)
+	IncrDeltaSync("bad", 3)
 	Decr("num_of_things")
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
