@@ -100,9 +100,9 @@ func DecrSuffix(name string, suffix string) {
 	IncrDeltaSuffix(name, -1, suffix)
 }
 
-func logCounter(name string, mc *counter) {
+func logCounter(name string, mc *counter, data int64) {
 	log.Printf(theCtx.fmtString,
 		name,
-		mc.data,
-		mc.data-mc.oldData)
+		data,
+		data-mc.oldData)
 }

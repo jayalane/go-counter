@@ -145,14 +145,14 @@ func LogCounters() {
 	sort.Strings(ctrNames)
 
 	for k := range ctrNames {
+		data := atomic.LoadInt64(&theCtx.counters[ctrNames[k]].data)
 		if theCtx.logCb != nil {
 			cbData[k].Name = ctrNames[k]
-			data := atomic.LoadInt64(&theCtx.counters[ctrNames[k]].data)
 			cbData[k].Delta = data - theCtx.counters[ctrNames[k]].oldData
 		}
-		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]])
+		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]], data)
 		newC := theCtx.counters[ctrNames[k]]
-		newC.oldData = newC.data // have to update old data
+		newC.oldData = data // have to update old data
 	}
 
 	theCtx.ctxLock.Unlock()

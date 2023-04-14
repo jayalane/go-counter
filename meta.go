@@ -15,7 +15,7 @@ func AddMetaCounter(name string,
 	suffix := getCallerFunctionName()
 	theCtxLock.Lock()
 	// adding the suffix to counter names keeps APi compatibility but is less useful
-	theCtx.metaCtrs[name+"/"+suffix] = &metaCounter{name + "/" + suffix, c1 + "/" + suffix, c2 + "/" + suffix, f} 
+	theCtx.metaCtrs[name+"/"+suffix] = &metaCounter{name + "/" + suffix, c1 + "/" + suffix, c2 + "/" + suffix, f}
 	theCtxLock.Unlock()
 }
 
