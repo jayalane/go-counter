@@ -155,14 +155,17 @@ func LogCounters() {
 		newC.oldData = data // have to update old data
 	}
 
+	logCb := theCtx.logCb
+	valCb := theCtx.valCb
+
 	theCtx.ctxLock.Unlock()
 
-	if theCtx.logCb != nil {
-		theCtx.logCb(cbData)
+	if logCb != nil {
+		logCb(cbData)
 	}
 
-	if theCtx.valCb != nil {
-		theCtx.valCb(cbVal)
+	if valCb != nil {
+		valCb(cbVal)
 	}
 }
 
@@ -274,12 +277,12 @@ func InitCounters() {
 	}
 
 	go func() { // per minute checker
-		theCtxLock.Lock()
+		theCtx.ctxLock.Lock()
 		if theCtx.timeSleep == 0 {
 			theCtx.timeSleep = 60.0
 		}
 		timeSleep := theCtx.timeSleep
-		theCtxLock.Unlock()
+		theCtx.ctxLock.Unlock()
 		for {
 			n := time.Now()
 			time.Sleep(time.Second * (time.Duration(timeSleep) - time.Duration(int64(time.Since(n)/time.Second))))
@@ -293,30 +296,30 @@ func InitCounters() {
 // LogInterval with the names of the current metrics and the last
 // minute delta
 func SetMetricReporter(fn MetricReporter) {
-	theCtxLock.Lock()
+	theCtx.ctxLock.Lock()
 	theCtx.logCb = fn
-	theCtxLock.Unlock()
+	theCtx.ctxLock.Unlock()
 }
 
 // SetValReporter specifies a function to be called once per
 // LogInterval with the names of the current metrics which are
 // float64s and the last minute delta
 func SetValReporter(fn ValReporter) {
-	theCtxLock.Lock()
+	theCtx.ctxLock.Lock()
 	theCtx.valCb = fn
-	theCtxLock.Unlock()
+	theCtx.ctxLock.Unlock()
 }
 
 // SetLogInterval sets the number of seconds to sleep between logs of the counters
 func SetLogInterval(i float64) {
-	theCtxLock.Lock()
+	theCtx.ctxLock.Lock()
 	theCtx.timeSleep = i
-	theCtxLock.Unlock()
+	theCtx.ctxLock.Unlock()
 }
 
 // SetFmtString sets the format string to log the counters with.  It must have a %s and two %d
 func SetFmtString(fs string) {
-	theCtxLock.Lock()
+	theCtx.ctxLock.Lock()
 	theCtx.fmtString = fs // should validate
-	theCtxLock.Unlock()
+	theCtx.ctxLock.Unlock()
 }

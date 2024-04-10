@@ -10,13 +10,18 @@ import (
 	"math"
 )
 
-type Resolution func (float64, int, string) string
+// Resolution is a function type used with some
+// predefined constants to allow the library
+// user to choose histogram bucket resolution.
+type Resolution func(float64, int, string) string
+
 var theResolution = HighRes
 
 var units = []string{"f", "p", "n", "mi", "m", "", "k", "M", "G", "T", "P"}
 
 var unitSort = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"}
 
+// LowRes is a bucketing constant for 1/2/5/10/20/50 style buckets.
 func LowRes(shortVal float64, size3 int, unit string) string {
 	s := ""
 	if shortVal >= 500 {
@@ -42,6 +47,7 @@ func LowRes(shortVal float64, size3 int, unit string) string {
 	return s
 }
 
+// MediumRes is a bucketing constant for one digit of resolution.
 func MediumRes(shortVal float64, size3 int, unit string) string {
 	s := ""
 
@@ -53,7 +59,7 @@ func MediumRes(shortVal float64, size3 int, unit string) string {
 		s = "700" + unit + "-800" + unit
 	} else if shortVal >= 600 {
 		s = "600" + unit + "-700" + unit
-	}	else if shortVal >= 500 {
+	} else if shortVal >= 500 {
 		s = "500" + unit + "-600" + unit
 	} else if shortVal >= 400 {
 		s = "400" + unit + "-500" + unit
@@ -103,7 +109,7 @@ func MediumRes(shortVal float64, size3 int, unit string) string {
 	return s
 }
 
-
+// HighRes is a constant for 2 sigfig of resolution.
 func HighRes(shortVal float64, size3 int, unit string) string {
 	s := ""
 
@@ -114,7 +120,7 @@ func HighRes(shortVal float64, size3 int, unit string) string {
 	if shortVal >= 99.99 {
 		for x := float64(980); x >= 100; x = x - 10 {
 			if shortVal >= x {
-				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x + 10) + unit
+				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x+10) + unit
 				return s
 			}
 		}
@@ -122,20 +128,22 @@ func HighRes(shortVal float64, size3 int, unit string) string {
 	if shortVal >= 9.99 {
 		for x := float64(99); x >= 10; x = x - 1.0 {
 			if shortVal >= x {
-				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x + 1) + unit
+				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x+1) + unit
 				return s
 			}
 		}
 	}
 	for x := float64(9.9); x >= 1; x = x - 0.1 {
 		if shortVal >= x {
-			s = fmt.Sprintf("%05.1f", x) + unit + "-" + fmt.Sprintf("%.1f", x + 0.1) + unit
+			s = fmt.Sprintf("%05.1f", x) + unit + "-" + fmt.Sprintf("%.1f", x+0.1) + unit
 			return s
 		}
 	}
 	return "err"
 }
 
+// SetResolution lets the library caller to specify
+// histogram bucket resolution.
 func SetResolution(f Resolution) {
 	theResolution = f
 }

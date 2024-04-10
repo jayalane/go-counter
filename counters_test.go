@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
-	"time"
 )
 
 var cbRan int32 = 0
@@ -17,7 +16,7 @@ func metricReporterCB(metrics []MetricReport) {
 	atomic.StoreInt32(&cbRan, 1)
 	for x := range metrics {
 		m := metrics[x]
-		fmt.Println("CB: ", m.Name, m.Delta)
+		fmt.Println("metric delta CB: ", m.Name, m.Delta)
 	}
 }
 
@@ -27,7 +26,7 @@ func valReporterCB(metrics []ValReport) {
 	atomic.StoreInt32(&valCbRan, 1)
 	for x := range metrics {
 		m := metrics[x]
-		fmt.Println("CB: ", m.Name, m.Delta)
+		fmt.Println("Val CB: ", m.Name, m.Delta)
 	}
 }
 
@@ -56,6 +55,8 @@ func TestCounter(t *testing.T) {
 	SetLogInterval(1)
 	SetMetricReporter(metricReporterCB)
 	SetValReporter(valReporterCB)
+	Set("floater", 3.141)
+	LogCounters()
 	AddMetaCounter("availability", "good", "bad", RatioTotal)
 	for i := 0; i < 1000; i++ {
 		go func() {
@@ -63,19 +64,22 @@ func TestCounter(t *testing.T) {
 			IncrSync("a_num_of_things")
 		}()
 	}
-	time.Sleep(1100 * time.Millisecond)
 	IncrDelta("good", 97)
 	IncrDeltaSync("bad", 3)
+	Set("floater", 3.141)
 	Decr("num_of_things")
+
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
 		fmt.Println("Callback did not run", c)
 		t.Fail()
 	}
+
 	cc := atomic.LoadInt32(&valCbRan)
 	if cc != 1 {
 		fmt.Println("Val callback did not run", cc)
 		t.Fail()
+		panic("Val cb")
 	}
-	time.Sleep(1100 * time.Millisecond)
+	LogCounters()
 }
