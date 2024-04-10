@@ -94,15 +94,17 @@ var theCtxLock = sync.RWMutex{}
 // each minute but can be called externally e.g. at process end.
 func LogCounters() {
 
-	theCtx.ctxLock.RLock()
+	theCtx.ctxLock.Lock()
 	updateMaxLen(nil, nil)
 	theCtx.fmtString = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20d %20d\n"
 	theCtx.fmtStringStr = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20s %20s\n"
 	theCtx.fmtStringF64 = "%-" + fmt.Sprintf("%d", theCtx.maxLen+12) + "s  %20f %20f\n"
-	theCtx.ctxLock.RUnlock()
+	fmtStringStr := theCtx.fmtStringStr
 
-	log.Printf(theCtx.fmtStringStr, "--------------------------", time.Now(), "")
-	log.Printf(theCtx.fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
+	theCtx.ctxLock.Unlock()
+
+	log.Printf(fmtStringStr, "--------------------------", time.Now(), "")
+	log.Printf(fmtStringStr, "Uptime", time.Since(theCtx.startTime), "")
 
 	theCtx.ctxLock.Lock()
 
