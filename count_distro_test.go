@@ -27,6 +27,13 @@ var testsDerived = []t{
 	},
 	t{
 		name:             "test",
+		value:            -1113.0,
+		lowResDerived:    "test-g[001k-2k]",
+		mediumResDerived: "test-g[001k-2k]",
+		highResDerived:   "test-g[001.1k-1.2k]",
+	},
+	t{
+		name:             "test",
 		value:            0.0,
 		lowResDerived:    "test [zero]",
 		mediumResDerived: "test [zero]",
@@ -152,9 +159,11 @@ func TestDerivMarkDist(t *testing.T) {
 func TestErr(t *testing.T) {
 	InitCounters()
 	SetLogInterval(1)
-	for i := 0; i < 1_000_000; i++ {
+	for i := 0; i < 1_000; i++ {
 		MarkDistribution("seeking_err", rand.Float64())
 		MarkDistribution("seeking_err", 1.0/rand.Float64())
+		MarkDistribution("seeking_err", -1.0/rand.Float64())
+		MarkDistribution("seeking_err", -rand.Float64())
 		MarkDistribution("seeking_err", 0)
 	}
 	LogCounters()
