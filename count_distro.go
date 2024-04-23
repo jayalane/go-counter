@@ -133,9 +133,9 @@ func HighRes(shortVal float64, size3 int, unit string) string {
 			}
 		}
 	}
-	for x := float64(9.9); x >= 1; x = x - 0.1 {
-		if shortVal >= x {
-			s = fmt.Sprintf("%05.1f", x) + unit + "-" + fmt.Sprintf("%.1f", x+0.1) + unit
+	for x := float64(99); x >= 10; x = x - 1 {
+		if math.Abs(shortVal*10-x) <= 0.5 {
+			s = fmt.Sprintf("%05.1f", x/10.0) + unit + "-" + fmt.Sprintf("%.1f", x/10.0+0.1) + unit
 			return s
 		}
 	}

@@ -20,6 +20,13 @@ type t struct {
 var testsDerived = []t{
 	t{
 		name:             "test",
+		value:            1.0,
+		lowResDerived:    "testf[001-2]",
+		mediumResDerived: "testf[001-2]",
+		highResDerived:   "testf[001.0-1.1]",
+	},
+	t{
+		name:             "test",
 		value:            1113.0,
 		lowResDerived:    "testg[001k-2k]",
 		mediumResDerived: "testg[001k-2k]",
@@ -140,6 +147,7 @@ func TestDerivDistNameHigh(t *testing.T) {
 		if s != te.highResDerived {
 			fmt.Println("Got", s, "Expected", te.highResDerived, "from", te.value)
 			t.Fail()
+			deriveDistName(te.name, te.value)
 		}
 	}
 }
