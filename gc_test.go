@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestGcMetrics(t *testing.T) {
+func TestGcMetrics(_ *testing.T) {
 	checkRuntime()
 	time.Sleep(2 * time.Second)
 	LogCounters()

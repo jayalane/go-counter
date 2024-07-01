@@ -10,20 +10,22 @@ import (
 	"testing"
 )
 
-var cbRan int32 = 0
+var cbRan int32
 
 func metricReporterCB(metrics []MetricReport) {
 	atomic.StoreInt32(&cbRan, 1)
+
 	for x := range metrics {
 		m := metrics[x]
 		fmt.Println("metric delta CB: ", m.Name, m.Delta)
 	}
 }
 
-var valCbRan int32 = 0
+var valCbRan int32
 
 func valReporterCB(metrics []ValReport) {
 	atomic.StoreInt32(&valCbRan, 1)
+
 	for x := range metrics {
 		m := metrics[x]
 		fmt.Println("Val CB: ", m.Name, m.Delta)
@@ -34,6 +36,7 @@ func BenchmarkCounter(b *testing.B) {
 	InitCounters()
 	SetLogInterval(1)
 	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
 		Incr("num_of_things")
 	}
@@ -50,7 +53,6 @@ func BenchmarkSyncIncr(b *testing.B) {
 }
 
 func TestCounter(t *testing.T) {
-
 	InitCounters()
 	SetLogInterval(1)
 	SetMetricReporter(metricReporterCB)
@@ -58,12 +60,14 @@ func TestCounter(t *testing.T) {
 	Set("floater", 3.141)
 	LogCounters()
 	AddMetaCounter("availability", "good", "bad", RatioTotal)
-	for i := 0; i < 1000; i++ {
+
+	for range 1000 {
 		go func() {
 			Incr("num_of_things")
 			IncrSync("a_num_of_things")
 		}()
 	}
+
 	IncrDelta("good", 97)
 	IncrDeltaSync("bad", 3)
 	Set("floater", 3.141)
@@ -81,5 +85,6 @@ func TestCounter(t *testing.T) {
 		t.Fail()
 		panic("Val cb")
 	}
+
 	LogCounters()
 }

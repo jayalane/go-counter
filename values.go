@@ -6,7 +6,6 @@ package counters
 
 import (
 	"log"
-	"math/rand"
 	"strings"
 )
 
@@ -17,14 +16,13 @@ func Set(name string, val float64) {
 	SetSuffix(name, val, suffix)
 }
 
-// SetSuffix is a bit faster API - the func name lookup is a bit slow
+// SetSuffix is a bit faster API - the func name lookup is a bit slow.
 func SetSuffix(name string, val float64, suffix string) {
-	j := rand.Uint32() % numChannels // for less contention
-	select {                         // non-blocking will drop overflow
+	j := getChannel()
+	select { // non-blocking will drop overflow
 	case theCtx.v[j] <- valueMsg{name, suffix, val}:
 		// good
-	default:
-		// bad but ok
+	default: // bad but ok
 	}
 }
 

@@ -6,9 +6,10 @@ package counters
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"sync/atomic"
 )
+
+var numCalled uint32
 
 // Incr is the main API - will create counter, and add one to it, as needed.
 // One line does it all.
@@ -17,7 +18,7 @@ func Incr(name string) {
 }
 
 // IncrSuffix allows you to do an Incr without runtime lookup of the
-// caller for the suffix
+// caller for the suffix.
 func IncrSuffix(name string, suffix string) {
 	IncrDeltaSuffix(name, 1, suffix)
 }
@@ -40,28 +41,39 @@ func IncrDelta(name string, i int64) {
 	IncrDeltaSuffix(name, i, suffix)
 }
 
+func getChannel() uint32 {
+	newCount := atomic.AddUint32(&numCalled, 1)
+
+	return newCount % numChannels
+}
+
 // IncrDeltaSuffix is most versatile API - You can add more than 1 to
 // the counter (negative values are fine) and provide a static/fast
-// suffix for the counter
+// suffix for the counter.
 func IncrDeltaSuffix(name string, i int64, suffix string) {
-	j := rand.Uint32() % numChannels
+	j := getChannel()
+
 	select {
 	case theCtx.c[j] <- counterMsg{name, suffix, i}:
 		// good
-	default:
-		// bad but ok
+	default: // bad but ok
 	}
 }
 
-// ReadSync takes a stat name (including suffix) and returns its value
+// ReadSync takes a stat name (including suffix) and returns its value.
 func ReadSync(name string) int64 {
 	theCtx.ctxLock.RLock()
+
 	c, ok := theCtx.counters[name]
+
 	theCtx.ctxLock.RUnlock()
+
 	if !ok {
 		fmt.Println("Can't find", name)
+
 		return 0
 	}
+
 	return c.data
 }
 
@@ -73,16 +85,19 @@ func IncrDeltaSync(name string, i int64) {
 
 // IncrDeltaSyncSuffix is best API.
 func IncrDeltaSyncSuffix(name string, i int64, suffix string) {
-
 	theCtx.ctxLock.RLock()
 	fullName := name + "/" + suffix
 	c, ok := theCtx.counters[fullName]
 	theCtx.ctxLock.RUnlock()
+
 	if !ok {
 		c = &counter{}
 		c.data = i
+
 		theCtx.ctxLock.Lock()
+
 		theCtx.counters[fullName] = c
+
 		theCtx.ctxLock.Unlock()
 	} else {
 		atomic.AddInt64(&c.data, i)
@@ -95,7 +110,7 @@ func Decr(name string) {
 }
 
 // DecrSuffix is used to decrement a counter made with Incr with the
-// suffix provided instead of the runtime inspection
+// suffix provided instead of the runtime inspection.
 func DecrSuffix(name string, suffix string) {
 	IncrDeltaSuffix(name, -1, suffix)
 }
