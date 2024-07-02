@@ -69,22 +69,24 @@ type valueMsg struct {
 }
 
 type ctx struct {
-	values       map[string]*value
-	counters     map[string]*counter
-	metaCtrs     map[string]*metaCounter
-	maxLen       int // length of longest metric
-	logCb        MetricReporter
-	valCb        ValReporter
-	ctxLock      sync.RWMutex
-	startTime    time.Time
-	started      bool
-	finished     chan bool
-	c            []chan counterMsg
-	v            []chan valueMsg
-	fmtString    string
-	fmtStringStr string
-	fmtStringF64 string
-	timeSleep    float64
+	valuesByName   map[string]*value // key present, nil value means check values
+	values         map[string]*value
+	countersByName map[string]*counter // key present, nil value means check counter
+	counters       map[string]*counter
+	metaCtrs       map[string]*metaCounter
+	maxLen         int // length of longest metric
+	logCb          MetricReporter
+	valCb          ValReporter
+	ctxLock        sync.RWMutex
+	startTime      time.Time
+	started        bool
+	finished       chan bool
+	c              []chan counterMsg
+	v              []chan valueMsg
+	fmtString      string
+	fmtStringStr   string
+	fmtStringF64   string
+	timeSleep      float64
 }
 
 var (
@@ -227,7 +229,9 @@ func initCtx() {
 
 	theCtx.finished = make(chan bool, 1)
 	theCtx.counters = make(map[string]*counter)
+	theCtx.countersByName = make(map[string]*counter)
 	theCtx.values = make(map[string]*value)
+	theCtx.valuesByName = make(map[string]*value)
 	theCtx.metaCtrs = make(map[string]*metaCounter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
@@ -260,32 +264,91 @@ func readingValGoRoutine(index int) {
 		case <-theCtx.finished:
 			return
 		case vm := <-theCtx.v[index]:
-			str := vm.name + "/" + vm.suffix
-			val := vm.v
-
-			theCtx.ctxLock.Lock()
-
-			v, ok := theCtx.values[str]
-
-			theCtx.ctxLock.Unlock()
-
-			if !ok {
-				v = &value{}
-				v.data = val
-
-				theCtx.ctxLock.Lock()
-
-				theCtx.values[str] = v
-
-				theCtx.ctxLock.Unlock()
-			} else {
-				theCtx.ctxLock.Lock()
-
-				v.data = val // bad but no atomics and just 1/minute
-
-				theCtx.ctxLock.Unlock()
-			}
+			getOrMakeAndSetValue(vm.name, vm.suffix, vm.v)
 		}
+	}
+}
+
+// getOrMakeCounter returns a counter struct.
+func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
+	nameOnly := false
+	key := ""
+
+	theCtx.ctxLock.RLock()
+
+	c, ok := theCtx.countersByName[name]
+
+	theCtx.ctxLock.RUnlock()
+
+	if ok && c == nil {
+		theCtx.ctxLock.RLock()
+		fullName := name + "/" + suffix
+		nameOnly = true
+		key = fullName
+		c, ok = theCtx.countersByName[fullName]
+		theCtx.ctxLock.RUnlock()
+	} else {
+		key = name
+	}
+
+	if !ok {
+		c = &counter{}
+		c.data = i
+
+		theCtx.ctxLock.Lock()
+
+		if nameOnly {
+			theCtx.countersByName[key] = c
+		} else {
+			theCtx.counters[key] = c
+		}
+
+		theCtx.ctxLock.Unlock()
+	} else {
+		atomic.AddInt64(&c.data, i)
+	}
+}
+
+// getOrMakeValue returns a counter struct.
+func getOrMakeAndSetValue(name string, suffix string, v float64) {
+	nameOnly := true
+	key := ""
+
+	theCtx.ctxLock.RLock()
+
+	c, ok := theCtx.valuesByName[name]
+
+	theCtx.ctxLock.RUnlock()
+
+	if ok && c == nil {
+		theCtx.ctxLock.RLock()
+		nameOnly = false
+		fullName := name + "/" + suffix // will malloc
+		key = fullName
+		c, ok = theCtx.valuesByName[fullName]
+		theCtx.ctxLock.RUnlock()
+	} else {
+		key = name
+	}
+
+	if !ok {
+		c = &value{}
+		c.data = v
+
+		theCtx.ctxLock.Lock()
+		if nameOnly {
+			theCtx.valuesByName[key] = c
+		} else {
+			theCtx.values[key] = c
+		}
+
+		theCtx.ctxLock.Unlock()
+	} else {
+		theCtx.ctxLock.Lock()
+
+		c.data = v // bad but no atomics and just 1/minute (from go stats)
+
+		theCtx.ctxLock.Lock()
 	}
 }
 
@@ -296,28 +359,7 @@ func readingCountsGoRoutine(index int) {
 		case <-theCtx.finished:
 			return
 		case cm := <-theCtx.c[index]:
-			str := cm.name + "/" + cm.suffix
-			i := cm.i
-
-			theCtx.ctxLock.RLock()
-
-			c, ok := theCtx.counters[str]
-
-			theCtx.ctxLock.RUnlock()
-
-			if !ok {
-				c = &counter{}
-
-				theCtx.ctxLock.Lock()
-
-				c.data = i
-
-				theCtx.counters[str] = c
-
-				theCtx.ctxLock.Unlock()
-			} else {
-				atomic.AddInt64(&c.data, i) // bad name
-			}
+			getOrMakeAndIncrCounter(cm.name, cm.suffix, cm.i)
 		}
 	}
 }

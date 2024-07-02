@@ -85,23 +85,7 @@ func IncrDeltaSync(name string, i int64) {
 
 // IncrDeltaSyncSuffix is best API.
 func IncrDeltaSyncSuffix(name string, i int64, suffix string) {
-	theCtx.ctxLock.RLock()
-	fullName := name + "/" + suffix
-	c, ok := theCtx.counters[fullName]
-	theCtx.ctxLock.RUnlock()
-
-	if !ok {
-		c = &counter{}
-		c.data = i
-
-		theCtx.ctxLock.Lock()
-
-		theCtx.counters[fullName] = c
-
-		theCtx.ctxLock.Unlock()
-	} else {
-		atomic.AddInt64(&c.data, i)
-	}
+	getOrMakeAndIncrCounter(name, suffix, i)
 }
 
 // Decr is used to decrement a counter made with Incr.
