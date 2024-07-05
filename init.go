@@ -89,10 +89,7 @@ type ctx struct {
 	timeSleep      float64
 }
 
-var (
-	theCtx     = ctx{}
-	theCtxLock = sync.RWMutex{}
-)
+var theCtx = ctx{}
 
 // LogCounters prints out the counters.  It is called internally
 // each minute but can be called externally e.g. at process end.
@@ -235,7 +232,6 @@ func initCtx() {
 	theCtx.metaCtrs = make(map[string]*metaCounter)
 	theCtx.started = true
 	theCtx.startTime = time.Now()
-	theCtx.ctxLock = sync.RWMutex{}
 }
 
 func minuteGoRoutine() {
@@ -269,7 +265,7 @@ func readingValGoRoutine(index int) {
 	}
 }
 
-// getOrMakeCounter returns a counter struct.
+// getOrMakeCounter checks the 2 hashes and increments the appropriate place.
 func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
 	nameOnly := false
 	key := ""
@@ -282,10 +278,12 @@ func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
 
 	if ok && c == nil {
 		theCtx.ctxLock.RLock()
+
 		fullName := name + "/" + suffix
 		nameOnly = true
 		key = fullName
 		c, ok = theCtx.countersByName[fullName]
+
 		theCtx.ctxLock.RUnlock()
 	} else {
 		key = name
@@ -348,7 +346,7 @@ func getOrMakeAndSetValue(name string, suffix string, v float64) {
 
 		c.data = v // bad but no atomics and just 1/minute (from go stats)
 
-		theCtx.ctxLock.Lock()
+		theCtx.ctxLock.Unlock()
 	}
 }
 
@@ -366,8 +364,8 @@ func readingCountsGoRoutine(index int) {
 
 // InitCounters should be called at least once to start the go routines etc.
 func InitCounters() {
-	theCtxLock.Lock()
-	defer theCtxLock.Unlock()
+	theCtx.ctxLock.Lock()
+	defer theCtx.ctxLock.Unlock()
 
 	if theCtx.started {
 		return

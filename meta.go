@@ -15,12 +15,12 @@ func AddMetaCounter(name string,
 ) {
 	suffix := getCallerFunctionName()
 
-	theCtxLock.Lock()
+	theCtx.ctxLock.Lock()
 
 	// adding the suffix to counter names keeps APi compatibility but is less useful
 	theCtx.metaCtrs[name+"/"+suffix] = &metaCounter{name + "/" + suffix, c1 + "/" + suffix, c2 + "/" + suffix, f}
 
-	theCtxLock.Unlock()
+	theCtx.ctxLock.Unlock()
 }
 
 // MetaCounterF is a function taking two ints and returning a calculated float64 for a new counter-type thing which is derived from 2 other ones.
@@ -45,8 +45,10 @@ func logMetaCounter(mc *metaCounter, cs map[string]*counter) {
 	vTotal := mc.f(c1.data, c2.data)
 	vDelta := mc.f(c1.data-c1.oldData, c2.data-c2.oldData)
 
-	log.Printf(theCtx.fmtStringF64,
+	log.Printf(
+		theCtx.fmtStringF64,
 		mc.name,
 		vTotal,
-		vDelta)
+		vDelta,
+	)
 }
