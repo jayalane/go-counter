@@ -127,39 +127,47 @@ func LogCounters() {
 	}
 
 	// then the counters
-	ctrNames := make([]string, len(theCtx.counters))
-	valNames := make([]string, len(theCtx.values))
-	cbData := make([]MetricReport, len(theCtx.counters)) // for CB
-	cbVal := make([]ValReport, len(theCtx.values))       // for CB
+	ctrNames := make([]string, len(theCtx.counters)+len(theCtx.countersByName))
+	valNames := make([]string, len(theCtx.values)+len(theCtx.valuesByName))
+	cbData := make([]MetricReport, len(theCtx.counters)+len(theCtx.countersByName)) // for CB
+	cbVal := make([]ValReport, len(theCtx.values)+len(theCtx.valuesByName))         // for CB
 
 	updateMaxLen(&ctrNames, &valNames)
 	sort.Strings(valNames)
 
 	for k := range valNames {
+		v, ok := theCtx.valuesByName[valNames[k]]
+		if !ok || v == nil {
+			v = theCtx.values[valNames[k]]
+		}
 		if theCtx.valCb != nil {
 			cbVal[k].Name = valNames[k]
-			cbVal[k].Delta = theCtx.values[valNames[k]].data - theCtx.values[valNames[k]].oldData
+			cbVal[k].Delta = v.data - v.oldData
 		}
 
-		logValue(valNames[k], theCtx.values[valNames[k]])
+		logValue(valNames[k], v)
 
-		newV := theCtx.values[valNames[k]]
+		newV := v
 		newV.oldData = newV.data // have to update old data
 	}
 
 	sort.Strings(ctrNames)
 
 	for k := range ctrNames {
-		data := atomic.LoadInt64(&theCtx.counters[ctrNames[k]].data)
+		v, ok := theCtx.countersByName[ctrNames[k]]
+		if !ok || v == nil {
+			v = theCtx.counters[ctrNames[k]]
+		}
+		data := atomic.LoadInt64(&v.data)
 
 		if theCtx.logCb != nil {
 			cbData[k].Name = ctrNames[k]
-			cbData[k].Delta = data - theCtx.counters[ctrNames[k]].oldData
+			cbData[k].Delta = data - v.oldData
 		}
 
-		logCounter(ctrNames[k], theCtx.counters[ctrNames[k]], data)
+		logCounter(ctrNames[k], v, data)
 
-		newC := theCtx.counters[ctrNames[k]]
+		newC := v
 		newC.oldData = data // have to update old data
 	}
 
@@ -179,10 +187,21 @@ func LogCounters() {
 
 // updateMaxLen updates the max len for formatting for both vals and ctrs.
 func updateMaxLen(ctrNames *[]string, valNames *[]string) {
-	i := 0
 	maxLen := 0
 
+	i := 0
 	for k := range theCtx.counters {
+		if len(k) > maxLen {
+			maxLen = len(k)
+		}
+
+		if ctrNames != nil {
+			(*ctrNames)[i] = k
+		}
+
+		i++
+	}
+	for k := range theCtx.countersByName {
 		if len(k) > maxLen {
 			maxLen = len(k)
 		}
@@ -205,6 +224,16 @@ func updateMaxLen(ctrNames *[]string, valNames *[]string) {
 			(*valNames)[i] = k
 		}
 
+		i++
+	}
+	for k := range theCtx.valuesByName {
+		if len(k) > maxLen {
+			maxLen = len(k)
+		}
+
+		if valNames != nil {
+			(*valNames)[i] = k
+		}
 		i++
 	}
 
@@ -267,7 +296,7 @@ func readingValGoRoutine(index int) {
 
 // getOrMakeCounter checks the 2 hashes and increments the appropriate place.
 func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
-	nameOnly := false
+	nameOnly := true // true means its in countersByName
 	key := ""
 
 	theCtx.ctxLock.RLock()
@@ -280,7 +309,7 @@ func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
 		theCtx.ctxLock.RLock()
 
 		fullName := name + "/" + suffix
-		nameOnly = true
+		nameOnly = false
 		key = fullName
 		c, ok = theCtx.countersByName[fullName]
 

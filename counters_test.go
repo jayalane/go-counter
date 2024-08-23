@@ -13,11 +13,22 @@ import (
 var cbRan int32
 
 func metricReporterCB(metrics []MetricReport) {
-	atomic.StoreInt32(&cbRan, 1)
+
+	fmt.Println("CB called", len(metrics))
+
+	someThingNotOne := false
 
 	for x := range metrics {
 		m := metrics[x]
-		fmt.Println("metric delta CB: ", m.Name, m.Delta)
+		val := ReadSync(m.Name)
+		if val != 0 && val != 1 {
+			someThingNotOne = true
+		}
+	}
+	if !someThingNotOne {
+		fmt.Println("Nothing was set")
+	} else {
+		atomic.StoreInt32(&cbRan, 1)
 	}
 }
 
@@ -54,7 +65,7 @@ func BenchmarkSyncIncr(b *testing.B) {
 
 func TestCounter(t *testing.T) {
 	InitCounters()
-	SetLogInterval(1)
+	SetLogInterval(10)
 	SetMetricReporter(metricReporterCB)
 	SetValReporter(valReporterCB)
 	Set("floater", 3.141)
@@ -71,8 +82,9 @@ func TestCounter(t *testing.T) {
 	IncrDelta("good", 97)
 	IncrDeltaSync("bad", 3)
 	Set("floater", 3.141)
-	Decr("num_of_things")
-
+	for range 20 {
+		Decr("num_of_things_2")
+	}
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
 		fmt.Println("Callback did not run", c)

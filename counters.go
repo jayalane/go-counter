@@ -64,9 +64,12 @@ func IncrDeltaSuffix(name string, i int64, suffix string) {
 func ReadSync(name string) int64 {
 	theCtx.ctxLock.RLock()
 
-	c, ok := theCtx.counters[name]
+	c, ok := theCtx.countersByName[name]
+	if !ok || c == nil {
+		c, ok = theCtx.counters[name]
+	}
 
-	theCtx.ctxLock.RUnlock()
+	defer theCtx.ctxLock.RUnlock()
 
 	if !ok {
 		fmt.Println("Can't find", name)
