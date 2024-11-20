@@ -319,15 +319,26 @@ func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
 	}
 
 	if !ok {
-		c = &counter{}
-		c.data = i
-
 		theCtx.ctxLock.Lock()
 
+		// another routine might have beat us to setting the counter, check again
 		if nameOnly {
-			theCtx.countersByName[key] = c
+			c, ok = theCtx.countersByName[key]
 		} else {
-			theCtx.counters[key] = c
+			c, ok = theCtx.counters[key]
+		}
+
+		if !ok {
+			c = &counter{}
+			c.data = i
+
+			if nameOnly {
+				theCtx.countersByName[key] = c
+			} else {
+				theCtx.counters[key] = c
+			}
+		} else {
+			atomic.AddInt64(&c.data, i)
 		}
 
 		theCtx.ctxLock.Unlock()
