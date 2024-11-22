@@ -111,40 +111,47 @@ func MediumRes(shortVal float64, size3 int, unit string) string { //nolint:cyclo
 }
 
 // HighRes is a constant for 2 sigfig of resolution.
-func HighRes(shortVal float64, size3 int, unit string) string {
+func HighRes(shortVal float64, size3 int, unit string) string { //nolint:cyclop
+	sign := ""
+
+	if shortVal < 0 {
+		sign = "-"
+		shortVal = -1 * shortVal
+	}
+
 	s := ""
 
 	if shortVal >= 990 { //nolint:mnd
 		s = "990" + unit + "-1" + units[size3+6]
 
-		return s
+		return sign + s
 	}
 
-	if shortVal >= 99.99 { //nolint:mnd
+	if shortVal >= 99.5 { //nolint:mnd
 		for x := float64(980); x >= 100; x -= 10 { //nolint:mnd
-			if shortVal >= x {
+			if shortVal > x || math.Abs(shortVal-x) <= 5 {
 				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x+10) + unit //nolint:mnd
 
-				return s
+				return sign + s
 			}
 		}
 	}
 
-	if shortVal >= 9.99 { //nolint:mnd
+	if shortVal >= 9.95 { //nolint:mnd
 		for x := float64(99); x >= 10; x -= 1.0 { //nolint:mnd
-			if shortVal >= x {
+			if shortVal > x || math.Abs(shortVal-x) <= 0.5 {
 				s = fmt.Sprintf("%03.0f", x) + unit + "-" + fmt.Sprintf("%.0f", x+1) + unit
 
-				return s
+				return sign + s
 			}
 		}
 	}
 
 	for x := float64(99); x >= 10; x-- { //nolint:mnd
-		if math.Abs(shortVal*10-x) <= 0.5 { //nolint:mnd
+		if shortVal*10 > x || math.Abs(shortVal*10-x) <= 0.5 { //nolint:mnd
 			s = fmt.Sprintf("%05.1f", x/10.0) + unit + "-" + fmt.Sprintf("%.1f", x/10.0+0.1) + unit //nolint:mnd
 
-			return s
+			return sign + s
 		}
 	}
 
