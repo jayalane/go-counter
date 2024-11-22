@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetOrMakeAndIncrCounter_RepeatedConcurrent(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		TestGetOrMakeAndIncrCounter_Concurrent(t)
 		// Reset the counters after each run to ensure a clean state for the next iteration.
 		theCtx.ctxLock.Lock()
@@ -26,16 +26,19 @@ func TestGetOrMakeAndIncrCounter_Concurrent(t *testing.T) {
 	)
 
 	var start sync.WaitGroup
+
 	start.Add(1)
 
 	var wg sync.WaitGroup
+
 	wg.Add(numRoutines)
 
-	for i := 0; i < numRoutines; i++ {
+	for range numRoutines {
 		go func() {
 			defer wg.Done()
 			start.Wait() // Wait for all goroutines to start
-			for j := 0; j < incrementsPerRoutine; j++ {
+
+			for range incrementsPerRoutine {
 				getOrMakeAndIncrCounter(metricName, "", 1)
 			}
 		}()

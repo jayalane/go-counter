@@ -44,7 +44,7 @@ func checkRuntime() {
 				continue
 			}
 
-			IncrDeltaSuffix(name, int64(value.Uint64()), "go-runtime")
+			IncrDeltaSuffix(name, int64(value.Uint64()), "go-runtime") //nolint:gosec
 		} else if value.Kind() == metrics.KindFloat64 {
 			SetSuffix(name, value.Float64(), "go-runtime")
 		} else if value.Kind() == metrics.KindUint64 {

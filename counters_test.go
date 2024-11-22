@@ -13,7 +13,6 @@ import (
 var cbRan int32
 
 func metricReporterCB(metrics []MetricReport) {
-
 	fmt.Println("CB called", len(metrics))
 
 	someThingNotOne := false
@@ -21,10 +20,12 @@ func metricReporterCB(metrics []MetricReport) {
 	for x := range metrics {
 		m := metrics[x]
 		val := ReadSync(m.Name)
+
 		if val != 0 && val != 1 {
 			someThingNotOne = true
 		}
 	}
+
 	if !someThingNotOne {
 		fmt.Println("Nothing was set")
 	} else {
@@ -82,9 +83,11 @@ func TestCounter(t *testing.T) {
 	IncrDelta("good", 97)
 	IncrDeltaSync("bad", 3)
 	Set("floater", 3.141)
+
 	for range 20 {
 		Decr("num_of_things_2")
 	}
+
 	c := atomic.LoadInt32(&cbRan)
 	if c != 1 {
 		fmt.Println("Callback did not run", c)

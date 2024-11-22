@@ -93,7 +93,7 @@ var theCtx = ctx{}
 
 // LogCounters prints out the counters.  It is called internally
 // each minute but can be called externally e.g. at process end.
-func LogCounters() {
+func LogCounters() { // nolint:cyclop
 	theCtx.ctxLock.Lock()
 	updateMaxLen(nil, nil)
 
@@ -140,6 +140,7 @@ func LogCounters() {
 		if !ok || v == nil {
 			v = theCtx.values[valNames[k]]
 		}
+
 		if theCtx.valCb != nil {
 			cbVal[k].Name = valNames[k]
 			cbVal[k].Delta = v.data - v.oldData
@@ -158,6 +159,7 @@ func LogCounters() {
 		if !ok || v == nil {
 			v = theCtx.counters[ctrNames[k]]
 		}
+
 		data := atomic.LoadInt64(&v.data)
 
 		if theCtx.logCb != nil {
@@ -186,10 +188,10 @@ func LogCounters() {
 }
 
 // updateMaxLen updates the max len for formatting for both vals and ctrs.
-func updateMaxLen(ctrNames *[]string, valNames *[]string) {
+func updateMaxLen(ctrNames *[]string, valNames *[]string) { //nolint:cyclop
 	maxLen := 0
-
 	i := 0
+
 	for k := range theCtx.counters {
 		if len(k) > maxLen {
 			maxLen = len(k)
@@ -201,6 +203,7 @@ func updateMaxLen(ctrNames *[]string, valNames *[]string) {
 
 		i++
 	}
+
 	for k := range theCtx.countersByName {
 		if len(k) > maxLen {
 			maxLen = len(k)
@@ -226,6 +229,7 @@ func updateMaxLen(ctrNames *[]string, valNames *[]string) {
 
 		i++
 	}
+
 	for k := range theCtx.valuesByName {
 		if len(k) > maxLen {
 			maxLen = len(k)
@@ -234,6 +238,7 @@ func updateMaxLen(ctrNames *[]string, valNames *[]string) {
 		if valNames != nil {
 			(*valNames)[i] = k
 		}
+
 		i++
 	}
 
@@ -318,7 +323,7 @@ func getOrMakeAndIncrCounter(name string, suffix string, i int64) {
 		key = name
 	}
 
-	if !ok {
+	if !ok { // nolint:nestif
 		theCtx.ctxLock.Lock()
 
 		// another routine might have beat us to setting the counter, check again
