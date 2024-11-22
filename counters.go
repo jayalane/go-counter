@@ -77,7 +77,7 @@ func ReadSync(name string) int64 {
 		return 0
 	}
 
-	return c.data
+	return atomic.LoadInt64(&c.data)
 }
 
 // IncrDeltaSync is faster sync more versatile API - You can add more than 1 to the counter (negative values are fine).
